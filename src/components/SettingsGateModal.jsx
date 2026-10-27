@@ -9,7 +9,8 @@ import {
   AlertCircle, 
   Mail, 
   RotateCcw,
-  Sparkles
+  Sparkles,
+  Zap
 } from 'lucide-react';
 import { 
   getSettingsPassword, 
@@ -151,6 +152,13 @@ export const SettingsGateModal = ({ isOpen, onClose, onUnlockSuccess }) => {
     onUnlockSuccess();
   };
 
+  // Temporary Testing / Dev Bypass Handler
+  const handleDevBypass = () => {
+    soundEngine.playScannerBeep();
+    soundEngine.speak("Dev Bypass activated. Settings unlocked.");
+    onUnlockSuccess();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
       <div className="relative w-full max-w-md bg-[#0c1222] border border-cyan-500/40 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
@@ -186,6 +194,25 @@ export const SettingsGateModal = ({ isOpen, onClose, onUnlockSuccess }) => {
 
         {/* Body */}
         <div className="p-6 space-y-4">
+          {/* Temporary Testing / Dev Bypass Button Banner */}
+          <div className="p-2.5 rounded-2xl bg-amber-950/30 border border-amber-500/40 flex items-center justify-between gap-2 shadow-inner">
+            <div className="flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
+              <span className="text-[11px] font-bold text-amber-300">
+                Testing / Dev Mode
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleDevBypass}
+              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md transition-all active:scale-95 flex items-center gap-1.5"
+              title="Temporary Dev Bypass: Open Settings immediately without password"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Skip / Dev Bypass</span>
+            </button>
+          </div>
+
           {/* Error Message */}
           {errorMessage && (
             <div className="p-3 rounded-xl bg-rose-950/80 border border-rose-500/40 text-rose-300 text-xs font-semibold flex items-center gap-2 animate-fadeIn">
