@@ -6,10 +6,10 @@ import {
   Tag, 
   Award, 
   ShieldCheck, 
-  ArrowRight,
-  Sparkles,
-  Receipt,
-  Gift
+  ArrowRight, 
+  Sparkles, 
+  Receipt, 
+  Gift 
 } from 'lucide-react';
 import { soundEngine } from '../services/audioService';
 
@@ -26,9 +26,14 @@ export const BillingSummary = ({
   // Calculate gross subtotal
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
+  // Settings Toggles
+  const rankSystemEnabled = settings?.rankSystemEnabled !== false;
+  const milestoneEnabled = settings?.milestoneEnabled !== false;
+  const milestoneName = settings?.milestoneName || "Milestone Festival Reward";
+
   // Determine Rank Discount % based on activeCustomer and settings
   const getRankDiscountPct = () => {
-    if (!activeCustomer || !settings?.discountSlabs) return 0;
+    if (!rankSystemEnabled || !activeCustomer || !settings?.discountSlabs) return 0;
     const rank = activeCustomer.rank || 999;
     
     const matchedSlab = settings.discountSlabs.find(slab => 
@@ -41,7 +46,7 @@ export const BillingSummary = ({
   const rankDiscountPct = getRankDiscountPct();
   const rankDiscountAmount = (subtotal * rankDiscountPct) / 100;
 
-  // Milestone Loyalty Reward based on present active cart subtotal
+  // Milestone Loyalty / Festival Reward based on present active cart subtotal
   const milestoneTargetAmount = settings?.milestoneTargetAmount !== undefined && Number(settings.milestoneTargetAmount) > 0
     ? Number(settings.milestoneTargetAmount)
     : 10000;
@@ -49,7 +54,7 @@ export const BillingSummary = ({
     ? Number(settings.milestoneDiscountAmount)
     : 500;
 
-  const isMilestoneUnlocked = subtotal >= milestoneTargetAmount;
+  const isMilestoneUnlocked = milestoneEnabled && subtotal >= milestoneTargetAmount;
   const appliedMilestoneDiscount = isMilestoneUnlocked ? milestoneDiscountAmount : 0;
 
   // Calculate extra VIP discount
@@ -91,46 +96,50 @@ export const BillingSummary = ({
           </span>
         </div>
 
-        {/* Rank Loyalty Discount */}
-        <div className="flex items-center justify-between text-cyan-300 bg-cyan-950/40 border border-cyan-500/20 px-2.5 py-1.5 rounded-lg">
-          <div className="flex items-center gap-1.5">
-            <Award className="w-3.5 h-3.5 text-cyan-400" />
-            <span>
-              Rank #{activeCustomer?.rank || '—'} Loyalty Discount ({rankDiscountPct}%)
+        {/* Rank Loyalty Discount (if rank system is enabled) */}
+        {rankSystemEnabled && (
+          <div className="flex items-center justify-between text-cyan-300 bg-cyan-950/40 border border-cyan-500/20 px-2.5 py-1.5 rounded-lg">
+            <div className="flex items-center gap-1.5">
+              <Award className="w-3.5 h-3.5 text-cyan-400" />
+              <span>
+                Rank #{activeCustomer?.rank || '—'} Loyalty Discount ({rankDiscountPct}%)
+              </span>
+            </div>
+            <span className="font-mono font-bold text-cyan-300">
+              -₹{rankDiscountAmount.toFixed(2)}
             </span>
           </div>
-          <span className="font-mono font-bold text-cyan-300">
-            -₹{rankDiscountAmount.toFixed(2)}
-          </span>
-        </div>
+        )}
 
-        {/* Milestone Loyalty Reward Discount Row */}
-        {isMilestoneUnlocked ? (
-          <div className="flex items-center justify-between text-purple-300 bg-purple-950/60 border border-purple-500/40 px-2.5 py-1.5 rounded-lg animate-fadeIn shadow-sm">
-            <div className="flex items-center gap-1.5">
-              <Gift className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
-              <span className="font-semibold text-slate-100">
-                Milestone Cart Reward (Target ₹{milestoneTargetAmount.toLocaleString()}):
-              </span>
-              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-900 border border-purple-400 text-purple-200 font-bold uppercase tracking-wider">
-                100% UNLOCKED
+        {/* Customizable Milestone & Festival Loyalty Reward Row */}
+        {milestoneEnabled && (
+          isMilestoneUnlocked ? (
+            <div className="flex items-center justify-between text-purple-300 bg-purple-950/60 border border-purple-500/40 px-2.5 py-1.5 rounded-lg animate-fadeIn shadow-sm">
+              <div className="flex items-center gap-1.5">
+                <Gift className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
+                <span className="font-semibold text-slate-100">
+                  {milestoneName} (Target ₹{milestoneTargetAmount.toLocaleString()}):
+                </span>
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-900 border border-purple-400 text-purple-200 font-bold uppercase tracking-wider">
+                  UNLOCKED
+                </span>
+              </div>
+              <span className="font-mono font-bold text-purple-300">
+                -₹{appliedMilestoneDiscount.toFixed(2)}
               </span>
             </div>
-            <span className="font-mono font-bold text-purple-300">
-              -₹{appliedMilestoneDiscount.toFixed(2)}
-            </span>
-          </div>
-        ) : subtotal > 0 && subtotal < milestoneTargetAmount ? (
-          <div className="flex items-center justify-between text-slate-400 bg-slate-950/40 border border-slate-800/80 px-2.5 py-1.5 rounded-lg text-[11px]">
-            <div className="flex items-center gap-1.5">
-              <Gift className="w-3.5 h-3.5 text-purple-400" />
-              <span>Milestone Perk: Add ₹{(milestoneTargetAmount - subtotal).toFixed(2)} for ₹{milestoneDiscountAmount} OFF</span>
+          ) : subtotal > 0 && subtotal < milestoneTargetAmount ? (
+            <div className="flex items-center justify-between text-slate-400 bg-slate-950/40 border border-slate-800/80 px-2.5 py-1.5 rounded-lg text-[11px]">
+              <div className="flex items-center gap-1.5">
+                <Gift className="w-3.5 h-3.5 text-purple-400" />
+                <span>{milestoneName}: Add ₹{(milestoneTargetAmount - subtotal).toFixed(2)} for ₹{milestoneDiscountAmount} OFF</span>
+              </div>
+              <span className="font-mono text-purple-400 font-bold text-[10px]">
+                {Math.min(99, Math.round((subtotal / milestoneTargetAmount) * 100))}%
+              </span>
             </div>
-            <span className="font-mono text-purple-400 font-bold text-[10px]">
-              {Math.min(99, Math.round((subtotal / milestoneTargetAmount) * 100))}%
-            </span>
-          </div>
-        ) : null}
+          ) : null
+        )}
 
         {/* Extra / VIP Discount Input Field */}
         <div className="pt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-950/50 p-2 rounded-lg border border-slate-800">

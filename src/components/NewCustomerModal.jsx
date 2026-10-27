@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, UserPlus, Camera, Sparkles, Check, Image as ImageIcon } from 'lucide-react';
 import { soundEngine } from '../services/audioService';
+import { getNextCustomerId } from '../services/storage';
 
 export const NewCustomerModal = ({ isOpen, onClose, onAddCustomer, initialData }) => {
   const [name, setName] = useState('');
@@ -25,7 +26,8 @@ export const NewCustomerModal = ({ isOpen, onClose, onAddCustomer, initialData }
       return;
     }
 
-    const uniqueId = `CUST-${Math.floor(1000 + Math.random() * 9000)}`;
+    // Clean Sequential Customer IDs automatically (e.g. CUST-001, CUST-002, etc.)
+    const uniqueId = getNextCustomerId();
     const salutation = `${name.trim()} ji`;
 
     const newCustomer = {
@@ -57,7 +59,7 @@ export const NewCustomerModal = ({ isOpen, onClose, onAddCustomer, initialData }
     onAddCustomer(newCustomer);
 
     // Warm greeting
-    soundEngine.speak(`Welcome to SmartMart, ${salutation}! Your profile has been created and your face is registered.`);
+    soundEngine.speak(`Welcome to SmartMart, ${salutation}! Your customer ID is ${uniqueId}.`);
 
     // Reset and close
     setName('');
@@ -143,7 +145,8 @@ export const NewCustomerModal = ({ isOpen, onClose, onAddCustomer, initialData }
           </div>
 
           <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/20 text-emerald-300 text-[11px] leading-tight">
-            ✨ Auto-enrolled in SmartMart AI Loyalty Club with <strong>Rank #50 Welcome Privileges</strong>!
+            ✨ Next Sequential Customer ID:{' '}
+            <strong className="font-mono text-cyan-300">{getNextCustomerId()}</strong> with Rank #50 Welcome Privileges!
           </div>
 
           <div className="pt-2 flex items-center justify-end gap-2">

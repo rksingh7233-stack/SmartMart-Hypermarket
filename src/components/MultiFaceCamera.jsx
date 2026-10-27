@@ -28,7 +28,6 @@ function euclideanDistance(arr1, arr2) {
 // Generate pseudo 128-float face descriptor from face image canvas for fallback
 function generateCanvasFaceDescriptor(canvas, x, y, w, h) {
   const ctx = canvas.getContext('2d');
-  const size = 16; // 16x8 = 128 floats
   const sampleCanvas = document.createElement('canvas');
   sampleCanvas.width = 16;
   sampleCanvas.height = 8;
@@ -54,7 +53,8 @@ export const MultiFaceCamera = ({
   activeCustomer,
   onSelectCustomer,
   onOpenNewCustomerModalWithSnapshot,
-  onOpenManualLookup
+  onOpenManualLookup,
+  settings
 }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -69,19 +69,30 @@ export const MultiFaceCamera = ({
   // Manual lookup state
   const [manualLookupId, setManualLookupId] = useState('');
 
-  // 1. Start Webcam on mount
+  // 1. Start Webcam on mount or when preferred camera changes
   useEffect(() => {
     let isMounted = true;
 
     async function startCamera() {
       try {
         setCameraError(null);
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(t => t.stop());
+        }
+
+        const videoConstraints = {
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        };
+
+        if (settings?.preferredCameraId) {
+          videoConstraints.deviceId = { exact: settings.preferredCameraId };
+        } else {
+          videoConstraints.facingMode = 'user';
+        }
+
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 640 },
-            height: { ideal: 480 },
-            facingMode: 'user'
-          },
+          video: videoConstraints,
           audio: false
         });
 
@@ -96,8 +107,28 @@ export const MultiFaceCamera = ({
           };
         }
       } catch (err) {
-        console.warn("Camera access denied or unavailable:", err);
+        console.warn("Camera access error:", err);
         if (isMounted) {
+          if (settings?.preferredCameraId) {
+            try {
+              const fallbackStream = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+                audio: false
+              });
+              if (!isMounted) return;
+              streamRef.current = fallbackStream;
+              if (videoRef.current) {
+                videoRef.current.srcObject = fallbackStream;
+                videoRef.current.onloadedmetadata = () => {
+                  videoRef.current.play();
+                  setCameraActive(true);
+                };
+              }
+              return;
+            } catch (fallbackErr) {
+              // fallback failed
+            }
+          }
           setCameraError(err.message || "Webcam access denied. Please allow camera permissions or use Manual Lookup.");
           setCameraActive(false);
         }
@@ -112,7 +143,7 @@ export const MultiFaceCamera = ({
         streamRef.current.getTracks().forEach(t => t.stop());
       }
     };
-  }, []);
+  }, [settings?.preferredCameraId]);
 
   // 2. Load face-api models if available via CDN
   useEffect(() => {

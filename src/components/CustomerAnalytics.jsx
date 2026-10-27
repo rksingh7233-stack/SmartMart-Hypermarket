@@ -4,9 +4,9 @@ import {
   CreditCard, 
   MoreHorizontal, 
   Gift, 
-  Clock,
-  Sparkles,
-  ShoppingBag
+  Clock, 
+  Sparkles, 
+  ShoppingBag 
 } from 'lucide-react';
 
 export const CustomerAnalytics = ({
@@ -21,6 +21,9 @@ export const CustomerAnalytics = ({
     0
   );
 
+  const milestoneName = settings?.milestoneName || "Milestone Festival Reward";
+  const milestoneEnabled = settings?.milestoneEnabled !== false;
+
   const milestoneTargetAmount = settings?.milestoneTargetAmount !== undefined && Number(settings.milestoneTargetAmount) > 0
     ? Number(settings.milestoneTargetAmount)
     : 10000;
@@ -34,7 +37,7 @@ export const CustomerAnalytics = ({
     Math.round((currentCartSubtotal / milestoneTargetAmount) * 100)
   );
 
-  const isMilestoneUnlocked = currentCartSubtotal >= milestoneTargetAmount;
+  const isMilestoneUnlocked = milestoneEnabled && currentCartSubtotal >= milestoneTargetAmount;
   const remainingAmount = Math.max(0, milestoneTargetAmount - currentCartSubtotal);
 
   const pastPurchases = activeCustomer?.pastPurchases || [];
@@ -82,49 +85,57 @@ export const CustomerAnalytics = ({
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-center gap-1.5 font-bold text-slate-200">
             <Gift className="w-3.5 h-3.5 text-purple-400" />
-            <span>Milestone Loyalty Reward</span>
+            <span className="truncate max-w-[180px]">{milestoneName}</span>
           </div>
           <span className="font-mono text-cyan-300 text-xs font-bold">
             ₹{currentCartSubtotal.toLocaleString()} / ₹{milestoneTargetAmount.toLocaleString()}
           </span>
         </div>
 
-        {/* Progress Track */}
-        <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden p-0.5">
-          <div 
-            className={`h-full rounded-full transition-all duration-500 ${
-              isMilestoneUnlocked 
-                ? 'bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400' 
-                : 'bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500'
-            }`}
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
+        {milestoneEnabled ? (
+          <>
+            {/* Progress Track */}
+            <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden p-0.5">
+              <div 
+                className={`h-full rounded-full transition-all duration-500 ${
+                  isMilestoneUnlocked 
+                    ? 'bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400' 
+                    : 'bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500'
+                }`}
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
 
-        <div className="flex items-center justify-between text-[11px] text-slate-400">
-          <span className="font-mono">{progressPercent}% Completed</span>
-          {currentCartSubtotal < milestoneTargetAmount ? (
-            <span className="text-amber-400 font-medium font-mono">
-              ₹{remainingAmount.toLocaleString()} away from reward!
-            </span>
-          ) : (
-            <span className="text-emerald-400 font-bold flex items-center gap-1 font-mono">
-              <Sparkles className="w-3 h-3 text-emerald-400" />
-              100% Completed - Unlocked ₹{milestoneDiscountAmount.toLocaleString()} Flat Discount!
-            </span>
-          )}
-        </div>
+            <div className="flex items-center justify-between text-[11px] text-slate-400">
+              <span className="font-mono">{progressPercent}% Completed</span>
+              {currentCartSubtotal < milestoneTargetAmount ? (
+                <span className="text-amber-400 font-medium font-mono">
+                  ₹{remainingAmount.toLocaleString()} away from reward!
+                </span>
+              ) : (
+                <span className="text-emerald-400 font-bold flex items-center gap-1 font-mono">
+                  <Sparkles className="w-3 h-3 text-emerald-400" />
+                  100% Completed - Unlocked ₹{milestoneDiscountAmount.toLocaleString()} Flat Discount!
+                </span>
+              )}
+            </div>
 
-        {isMilestoneUnlocked ? (
-          <p className="text-[10px] text-emerald-300 bg-emerald-950/60 border border-emerald-500/40 p-2 rounded-lg leading-tight font-medium flex items-center gap-1.5 animate-fadeIn">
-            <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span>
-              <strong>Reward Active:</strong> ₹{milestoneDiscountAmount.toLocaleString()} Flat Discount automatically applied in the bill breakdown below!
-            </span>
-          </p>
+            {isMilestoneUnlocked ? (
+              <p className="text-[10px] text-emerald-300 bg-emerald-950/60 border border-emerald-500/40 p-2 rounded-lg leading-tight font-medium flex items-center gap-1.5 animate-fadeIn">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>
+                  <strong>{milestoneName} Active:</strong> ₹{milestoneDiscountAmount.toLocaleString()} Flat Discount automatically applied in the bill breakdown below!
+                </span>
+              </p>
+            ) : (
+              <p className="text-[10px] text-purple-300/90 bg-purple-950/30 border border-purple-500/20 p-2 rounded-lg leading-tight">
+                🎁 <strong>Offer Perk:</strong> Add items worth ₹{remainingAmount.toLocaleString()} more to active cart to unlock instant ₹{milestoneDiscountAmount.toLocaleString()} off on this bill!
+              </p>
+            )}
+          </>
         ) : (
-          <p className="text-[10px] text-purple-300/90 bg-purple-950/30 border border-purple-500/20 p-2 rounded-lg leading-tight">
-            🎁 <strong>Current Bill Perk:</strong> Add items worth ₹{remainingAmount.toLocaleString()} more to active cart to unlock an instant ₹{milestoneDiscountAmount.toLocaleString()} discount on this bill!
+          <p className="text-[11px] text-slate-500 font-mono py-1">
+            (Festival & Milestone rewards are currently turned OFF in Settings)
           </p>
         )}
       </div>
@@ -176,7 +187,6 @@ export const CustomerAnalytics = ({
                       </span>
                     </td>
                     <td className="py-2 px-2 text-center">
-                      {/* ... (3 dots) button to instantly pop open that day's detailed bill invoice */}
                       <button
                         onClick={() => onViewInvoiceModal(bill)}
                         className="w-6 h-6 inline-flex items-center justify-center rounded-lg hover:bg-cyan-950 text-slate-400 hover:text-cyan-300 border border-transparent hover:border-cyan-500/30 transition-all active:scale-95"

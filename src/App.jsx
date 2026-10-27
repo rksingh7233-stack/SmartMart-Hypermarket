@@ -11,10 +11,18 @@ import {
   getSalesHistory, 
   recordSale,
   updateCustomerHistory,
-  updateProductStock
+  updateProductStock,
+  getAuthUser,
+  clearAuthSession,
+  getTrialInfo
 } from './services/storage';
 import { soundEngine } from './services/audioService';
 import { syncService } from './services/syncService';
+
+import { AuthView } from './components/AuthView';
+import { SettingsGateModal } from './components/SettingsGateModal';
+import { BulkImportModal } from './components/BulkImportModal';
+import { TrialExpiredModal } from './components/TrialExpiredModal';
 
 import { Header } from './components/Header';
 import { BarcodeScannerBar } from './components/BarcodeScannerBar';
@@ -46,6 +54,10 @@ export function App() {
     return 'pos';
   });
 
+  // Auth & 30-Day Free Trial State
+  const [currentUser, setCurrentUser] = useState(() => getAuthUser());
+  const [trialInfo, setTrialInfo] = useState(() => getTrialInfo());
+
   // Master state
   const [catalog, setCatalog] = useState([]);
   const [customers, setCustomers] = useState([]); // Starts EMPTY []
@@ -59,7 +71,9 @@ export function App() {
   const [extraDiscount, setExtraDiscount] = useState(0);
 
   // Modals state
+  const [isSettingsGateOpen, setIsSettingsGateOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [isNewProductOpen, setIsNewProductOpen] = useState(false);
   const [isNewCustomerOpen, setIsNewCustomerOpen] = useState(false);
   const [newCustomerInitialData, setNewCustomerInitialData] = useState(null);
@@ -99,6 +113,7 @@ export function App() {
     setCustomers(loadedCustomers);
     setSettings(loadedSettings);
     setSalesHistory(loadedSales);
+    setTrialInfo(getTrialInfo());
 
     // If there are any registered customers, select the first one, otherwise null
     if (loadedCustomers.length > 0) {
@@ -106,14 +121,14 @@ export function App() {
     } else {
       setActiveCustomer(null);
     }
-  }, []);
+  }, [currentUser]);
 
   // 1. DUAL SYNCHRONIZATION: Broadcast POS state to Customer Display Screen in real-time
   useEffect(() => {
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     
     let rankDiscountPct = 0;
-    if (activeCustomer && settings?.discountSlabs) {
+    if (settings?.rankSystemEnabled !== false && activeCustomer && settings?.discountSlabs) {
       const matched = settings.discountSlabs.find(
         s => activeCustomer.rank >= s.rankMin && activeCustomer.rank <= s.rankMax
       );
@@ -128,7 +143,7 @@ export function App() {
     const milestoneDiscount = settings?.milestoneDiscountAmount !== undefined && Number(settings.milestoneDiscountAmount) >= 0
       ? Number(settings.milestoneDiscountAmount)
       : 500;
-    const milestoneDiscountAmount = subtotal >= milestoneTarget ? milestoneDiscount : 0;
+    const milestoneDiscountAmount = (settings?.milestoneEnabled !== false && subtotal >= milestoneTarget) ? milestoneDiscount : 0;
 
     const extraDiscountAmount = extraDiscount || 0;
     const totalDiscount = rankDiscountAmount + milestoneDiscountAmount + extraDiscountAmount;
@@ -284,13 +299,17 @@ export function App() {
 
     // 3. Update customer history & spend if active customer
     if (activeCustomer) {
+      const rankPct = (settings?.rankSystemEnabled !== false)
+        ? (activeCustomer.rank <= 5 ? 20 : (activeCustomer.rank <= 15 ? 15 : 10))
+        : 0;
+
       const updatedCustomers = updateCustomerHistory(activeCustomer.id, {
         id: saleRecord.id,
         invoiceNo: saleRecord.invoiceNo,
         date: saleRecord.date,
         items: saleRecord.items,
         subtotal: saleRecord.subtotal,
-        rankDiscountPct: activeCustomer.rank <= 5 ? 20 : (activeCustomer.rank <= 15 ? 15 : 10),
+        rankDiscountPct: rankPct,
         rankDiscountAmount: saleRecord.rankDiscountAmount || 0,
         milestoneDiscountAmount: saleRecord.milestoneDiscountAmount || 0,
         extraDiscountAmount: saleRecord.extraDiscountAmount || 0,
@@ -348,7 +367,16 @@ export function App() {
     }
   };
 
-  // RENDER CUSTOMER DISPLAY SCREEN IF ON /customer OR #/customer
+  // Handle Cashier Logout
+  const handleLogout = () => {
+    clearAuthSession();
+    setCurrentUser(null);
+    setActiveCustomer(null);
+    setCart([]);
+    soundEngine.speak("Logged out of SmartMart terminal.");
+  };
+
+  // SCENARIO 1: RENDER CUSTOMER DISPLAY SCREEN IF ON /customer OR #/customer
   if (currentRoute === 'customer') {
     return (
       <CustomerDisplay 
@@ -360,14 +388,40 @@ export function App() {
     );
   }
 
-  // RENDER CASHIER POS TERMINAL
+  // SCENARIO 2: RENDER AUTHENTICATION VIEW IF USER IS NOT LOGGED IN
+  if (!currentUser) {
+    return (
+      <AuthView
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          setSettings(getSettings());
+          setTrialInfo(getTrialInfo());
+        }}
+      />
+    );
+  }
+
+  // SCENARIO 3: RENDER 30-DAY FREE TRIAL EXPIRED SCREEN IF TRIAL ENDED
+  if (trialInfo?.isExpired) {
+    return (
+      <TrialExpiredModal
+        onExtendSuccess={() => {
+          setTrialInfo(getTrialInfo());
+        }}
+      />
+    );
+  }
+
+  // SCENARIO 4: RENDER CASHIER POS TERMINAL
   return (
     <div className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col antialiased selection:bg-cyan-500 selection:text-black">
       {/* Top Header Navigation */}
       <Header 
         settings={settings}
         activeCustomer={activeCustomer}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        trialInfo={trialInfo}
+        onOpenSettings={() => setIsSettingsGateOpen(true)}
+        onLogout={handleLogout}
         onOpenCustomerDisplay={() => {
           window.location.hash = '#/customer';
           setCurrentRoute('customer');
@@ -424,6 +478,7 @@ export function App() {
           <MultiFaceCamera
             customers={customers}
             activeCustomer={activeCustomer}
+            settings={settings}
             onSelectCustomer={(c) => handleSelectCustomer(c, true)}
             onOpenNewCustomerModalWithSnapshot={(data) => {
               setNewCustomerInitialData(data);
@@ -495,13 +550,24 @@ export function App() {
         />
       )}
 
-      {/* 4. PIN-Protected Settings & POS Control Panel */}
+      {/* 4. Settings Gate Modal (Outside Settings Panel: First-time Create or Enter Password + Instant Masked OTP) */}
+      <SettingsGateModal
+        isOpen={isSettingsGateOpen}
+        onClose={() => setIsSettingsGateOpen(false)}
+        onUnlockSuccess={() => {
+          setIsSettingsGateOpen(false);
+          setIsSettingsOpen(true);
+        }}
+      />
+
+      {/* 5. Unlocked Settings & POS Control Panel */}
       <SettingsModal
         isOpen={isSettingsOpen}
         settings={settings}
         catalog={catalog}
         salesHistory={salesHistory}
         onSaveSettings={handleSaveSettings}
+        onOpenBulkImport={() => setIsBulkImportOpen(true)}
         onUpdateCatalog={(newCatalog) => {
           setCatalog(newCatalog);
           saveCatalog(newCatalog);
@@ -511,14 +577,23 @@ export function App() {
         onViewInvoiceModal={(invoice) => setActiveInvoiceModal(invoice)}
       />
 
-      {/* 5. Add New Product Modal */}
+      {/* 6. Bulk CSV / Excel Import Modal */}
+      <BulkImportModal
+        isOpen={isBulkImportOpen}
+        onClose={() => setIsBulkImportOpen(false)}
+        onImportSuccess={(count) => {
+          setCatalog(getCatalog());
+        }}
+      />
+
+      {/* 7. Add New Product Modal */}
       <NewProductModal
         isOpen={isNewProductOpen}
         onClose={() => setIsNewProductOpen(false)}
         onAddProduct={handleAddProduct}
       />
 
-      {/* 6. Register New Customer with Live Captured Face Snapshot */}
+      {/* 8. Register New Customer with Live Captured Face Snapshot */}
       <NewCustomerModal
         isOpen={isNewCustomerOpen}
         initialData={newCustomerInitialData}

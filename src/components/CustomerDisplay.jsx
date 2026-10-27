@@ -46,10 +46,19 @@ export const CustomerDisplay = ({ onBackToPos }) => {
   const [generatedQrUrl, setGeneratedQrUrl] = useState('');
   const lastAnnouncedPaymentId = useRef(null);
 
-  // Live Clock ticker
+  // Live Clock ticker & storage listener for settings
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
+    const handleStorage = (e) => {
+      if (e.key === 'smartmart_settings_v2') {
+        setSettings(getSettings());
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('storage', handleStorage);
+    };
   }, []);
 
   // Subscribe to live BroadcastChannel & Storage events from Cashier POS
@@ -100,17 +109,14 @@ export const CustomerDisplay = ({ onBackToPos }) => {
 
   // Payment Success Soundbox & Voice Announcement on Mobile Speaker
   const triggerSoundboxPaymentCelebration = (paymentData) => {
-    // 1. Play Cash Register Chime
     soundEngine.playCashDrawerDing();
 
-    // 2. Confetti Explosion
     confetti({
       particleCount: 100,
       spread: 80,
       origin: { y: 0.5 }
     });
 
-    // 3. Web Speech API Voice Announcement
     const amount = Math.round(paymentData.paidAmount || paymentData.totalPayable || 0).toLocaleString('en-IN');
     const customer = paymentData.customerName || "Customer";
     const announcement = `SmartMart AI: Rupees ${amount} received successfully from ${customer}! Thank you for shopping with us!`;
@@ -125,12 +131,6 @@ export const CustomerDisplay = ({ onBackToPos }) => {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit'
-  });
-
-  const formattedDate = currentTime.toLocaleDateString('en-GB', {
-    weekday: 'short',
-    day: '2-digit',
-    month: 'short'
   });
 
   const isCustomerActive = Boolean(syncState.customerName);
@@ -227,10 +227,12 @@ export const CustomerDisplay = ({ onBackToPos }) => {
                 <span>Customer:</span>
                 <span className="font-bold text-slate-200">{syncState.customerName || "Customer"}</span>
               </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Loyalty Tier:</span>
-                <span className="font-bold text-amber-300">Rank #{syncState.customerRank || '—'}</span>
-              </div>
+              {settings?.rankSystemEnabled !== false && (
+                <div className="flex justify-between text-slate-400">
+                  <span>Loyalty Tier:</span>
+                  <span className="font-bold text-amber-300">Rank #{syncState.customerRank || '—'}</span>
+                </div>
+              )}
               <div className="flex justify-between text-slate-400">
                 <span>Status:</span>
                 <span className="font-bold text-emerald-400">Thank you for shopping!</span>
@@ -315,10 +317,12 @@ export const CustomerDisplay = ({ onBackToPos }) => {
                 </div>
 
                 <div className="mt-1 flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-500/50 text-cyan-300 text-[11px] font-mono font-bold flex items-center gap-1">
-                    <Award className="w-3 h-3 text-cyan-400" />
-                    Rank #{syncState.customerRank || '—'}
-                  </span>
+                  {settings?.rankSystemEnabled !== false && (
+                    <span className="px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-500/50 text-cyan-300 text-[11px] font-mono font-bold flex items-center gap-1">
+                      <Award className="w-3 h-3 text-cyan-400" />
+                      Rank #{syncState.customerRank || '—'}
+                    </span>
+                  )}
                   <span className="text-[10px] text-slate-400 font-mono">
                     {syncState.customerId}
                   </span>
@@ -358,11 +362,11 @@ export const CustomerDisplay = ({ onBackToPos }) => {
                   </div>
                 )}
 
-                {syncState.subtotal >= (settings?.milestoneTargetAmount || 10000) && (
+                {settings?.milestoneEnabled !== false && syncState.subtotal >= (settings?.milestoneTargetAmount || 10000) && (
                   <div className="flex justify-between text-purple-300 text-[11px] font-medium bg-purple-950/40 border border-purple-500/30 px-2 py-1 rounded-lg">
                     <span className="flex items-center gap-1">
                       <Sparkles className="w-3 h-3 text-purple-400" />
-                      Milestone Reward Unlocked:
+                      {settings?.milestoneName || "Festival Offer"} Unlocked:
                     </span>
                     <span className="font-mono font-bold text-purple-300">
                       -₹{(settings?.milestoneDiscountAmount || 500).toFixed(2)}
@@ -388,7 +392,6 @@ export const CustomerDisplay = ({ onBackToPos }) => {
         ) : (
           /* SCENARIO D: Idle Screen ("Welcome to SmartMart! Please look at the scanner") */
           <div className="w-full rounded-3xl bg-slate-900/90 border border-slate-800 p-8 shadow-2xl text-center space-y-6">
-            {/* Futuristic Scan Animation Reticle */}
             <div className="relative w-28 h-28 mx-auto flex items-center justify-center">
               <div className="absolute inset-0 rounded-full border-2 border-cyan-400/40 animate-ping opacity-25" />
               <div className="absolute inset-2 rounded-full border-2 border-dashed border-cyan-400 animate-spin" style={{ animationDuration: '14s' }} />

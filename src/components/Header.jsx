@@ -12,7 +12,9 @@ import {
   Smartphone,
   ExternalLink,
   QrCode,
-  X
+  X,
+  LogOut,
+  ShieldCheck
 } from 'lucide-react';
 import QRCode from 'qrcode';
 
@@ -20,7 +22,9 @@ export const Header = ({
   settings, 
   onOpenSettings, 
   activeCustomer,
-  onOpenCustomerDisplay 
+  onOpenCustomerDisplay,
+  trialInfo,
+  onLogout 
 }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showMobileModal, setShowMobileModal] = useState(false);
@@ -36,7 +40,6 @@ export const Header = ({
   // Generate QR for opening on real mobile device
   useEffect(() => {
     if (showMobileModal) {
-      // Use current window origin + hash route
       const customerUrl = `${window.location.origin}/#/customer`;
       QRCode.toDataURL(customerUrl, {
         width: 220,
@@ -63,7 +66,6 @@ export const Header = ({
   });
 
   const handleOpenCustomerDisplay = () => {
-    // Open in a new tab for dual-screen demo (laptop cashier + customer window)
     window.open(`${window.location.origin}/#/customer`, '_blank');
   };
 
@@ -120,8 +122,18 @@ export const Header = ({
           </div>
         </div>
 
-        {/* Right: Actions, Live Clock & Settings */}
+        {/* Right: Actions, Free Trial Badge, Live Clock, Settings & Logout */}
         <div className="flex items-center gap-2.5">
+          {/* 30-Day Free Trial Remaining Days Badge */}
+          <div 
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-cyan-950/80 border border-cyan-500/30 text-cyan-300 font-mono text-xs shadow-inner"
+            title="30-Day Free Demo Trial License"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="font-semibold">{trialInfo?.daysRemaining ?? 30} Days Left</span>
+            <span className="text-[10px] text-cyan-400/80 hidden xl:inline">(Free Trial)</span>
+          </div>
+
           {/* Dedicated Customer Display Toggle Button */}
           <div className="flex items-center">
             <button
@@ -130,7 +142,8 @@ export const Header = ({
               title="Open Customer Display in a new tab"
             >
               <Smartphone className="w-3.5 h-3.5" />
-              <span>📱 Open Customer Display</span>
+              <span className="hidden sm:inline">📱 Customer Display</span>
+              <span className="sm:hidden">📱 Screen</span>
               <ExternalLink className="w-3 h-3 opacity-70" />
             </button>
             <button
@@ -143,7 +156,7 @@ export const Header = ({
           </div>
 
           {/* Live Clock & Date */}
-          <div className="hidden sm:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-cyan-500/30 text-xs shadow-inner">
+          <div className="hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-cyan-500/30 text-xs shadow-inner">
             <div className="flex items-center gap-1.5 text-slate-300 font-mono">
               <Calendar className="w-3.5 h-3.5 text-cyan-400" />
               <span>{formattedDate}</span>
@@ -155,17 +168,29 @@ export const Header = ({
             </div>
           </div>
 
-          {/* Settings Button (PIN Protected) */}
+          {/* Settings Button (PIN/Password Protected) */}
           <button
             onClick={onOpenSettings}
             className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-slate-800 to-slate-900 hover:from-cyan-950 hover:to-slate-900 border border-cyan-500/40 hover:border-cyan-400 text-cyan-200 hover:text-white transition-all text-xs font-semibold shadow-md hover:shadow-cyan-500/20 active:scale-95 group"
-            title="Access Admin Settings (Default PIN: 1234)"
+            title="Access Admin Settings"
           >
             <div className="p-1 rounded-md bg-cyan-950/80 group-hover:bg-cyan-500/20 text-cyan-400">
               <Lock className="w-3.5 h-3.5" />
             </div>
             <span className="hidden sm:inline">Settings</span>
           </button>
+
+          {/* User Logout Button */}
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-rose-950/60 border border-slate-700 hover:border-rose-500/50 text-slate-300 hover:text-rose-200 transition-all text-xs font-semibold shadow-md active:scale-95 group"
+              title="Log Out of Store Session"
+            >
+              <LogOut className="w-3.5 h-3.5 text-slate-400 group-hover:text-rose-400" />
+              <span className="hidden lg:inline">Logout</span>
+            </button>
+          )}
         </div>
       </div>
 

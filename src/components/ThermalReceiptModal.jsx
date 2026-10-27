@@ -54,6 +54,8 @@ export const ThermalReceiptModal = ({
       return;
     }
 
+    const festivalOfferName = settings?.milestoneName || "Milestone Festival Discount";
+
     const printWindow = window.open('', '_blank', 'width=420,height=750');
     if (printWindow) {
       printWindow.document.write(`
@@ -91,6 +93,7 @@ export const ThermalReceiptModal = ({
         <body>
           <div class="text-center border-b-dashed">
             <h2 style="margin: 0; font-size: 15px; font-weight: bold;">${settings?.martName || "SmartMart Hypermarket"}</h2>
+            ${settings?.shopAddress ? `<div style="font-size: 9px; color: #444; margin: 2px 0;">${settings.shopAddress}</div>` : ''}
             <div style="font-size: 10px; color: #555;">${settings?.tagline || "Autonomous Retail Terminal"}</div>
             <div style="font-size: 9px; color: #666;">GSTIN: ${settings?.gstin || "29AAECS1234F1Z8"}</div>
             <div style="font-size: 9px; color: #666;">Helpline: ${settings?.helpline || "+91 80 4961 8888"}</div>
@@ -101,7 +104,7 @@ export const ThermalReceiptModal = ({
             <div><strong>DATE/TIME:</strong> ${transaction?.date}</div>
             <div><strong>TERMINAL:</strong> ${settings?.counterId || "TERMINAL-04"}</div>
             <div><strong>CUSTOMER:</strong> ${activeCustomer?.name || "Walk-in Guest"} (${activeCustomer?.id || "GUEST"})</div>
-            <div><strong>LOYALTY RANK:</strong> Rank #${activeCustomer?.rank || "—"}</div>
+            ${settings?.rankSystemEnabled !== false ? `<div><strong>LOYALTY RANK:</strong> Rank #${activeCustomer?.rank || "—"}</div>` : ''}
           </div>
 
           <div class="border-b-dashed">
@@ -140,7 +143,7 @@ export const ThermalReceiptModal = ({
             ` : ''}
             ${transaction?.milestoneDiscountAmount > 0 ? `
               <div style="display: flex; justify-content: space-between;">
-                <span>Milestone Reward:</span>
+                <span>${festivalOfferName}:</span>
                 <span>-₹${transaction?.milestoneDiscountAmount?.toFixed(2)}</span>
               </div>
             ` : ''}
@@ -161,9 +164,13 @@ export const ThermalReceiptModal = ({
           </div>
 
           <div class="qr-box">
-            ${receiptQrUrl ? `<img src="${receiptQrUrl}" />` : ''}
-            <div style="font-size: 8px; margin-top: 3px; letter-spacing: 1px;">SCAN TO VERIFY e-INVOICE</div>
-            <div style="font-size: 9px; font-weight: bold; margin-top: 5px;">*** THANK YOU FOR SHOPPING! ***</div>
+            ${receiptQrUrl ? `<img src="${receiptQrUrl}" alt="Verify" />` : ''}
+            <div style="font-size: 9px; margin-top: 4px; color: #555;">Scan to verify digital tax invoice</div>
+          </div>
+
+          <div class="text-center" style="margin-top: 12px; font-size: 9px; color: #666;">
+            *** THANK YOU FOR SHOPPING! ***<br>
+            Powered by SmartMart AI Engine
           </div>
         </body>
         </html>
@@ -173,20 +180,16 @@ export const ThermalReceiptModal = ({
       setTimeout(() => {
         printWindow.print();
         printWindow.close();
-      }, 300);
-    } else {
-      window.print();
+      }, 350);
     }
   };
 
-  const handleReprint = () => {
-    soundEngine.playPrinterRollSound();
-    const el = document.getElementById('thermal-paper-slip');
-    if (el) {
-      el.classList.remove('animate-receipt-roll');
-      void el.offsetWidth;
-      el.classList.add('animate-receipt-roll');
-    }
+  const handleWhatsAppSend = () => {
+    soundEngine.playScannerBeep();
+    setShowWhatsAppToast(true);
+    setTimeout(() => {
+      setShowWhatsAppToast(false);
+    }, 3500);
   };
 
   const handleTear = () => {
@@ -194,44 +197,31 @@ export const ThermalReceiptModal = ({
     setIsTorn(true);
     setTimeout(() => {
       onClose();
-    }, 400);
+    }, 450);
   };
 
-  const handleSendWhatsApp = () => {
-    soundEngine.playScannerBeep();
-    setShowWhatsAppToast(true);
-
-    const cleanMobile = activeCustomer?.mobile?.replace(/[^0-9]/g, '') || '919876543210';
-    const text = `🧾 *${settings?.martName || "SmartMart Hypermarket"}*
-Invoice: *${transaction?.invoiceNo}*
-Date: ${transaction?.date}
-Customer: ${activeCustomer?.name || "Customer"} (Rank #${activeCustomer?.rank || "—"})
-Items: ${cart.length} items
-Total Paid: *₹${transaction?.totalPaid?.toFixed(2)}* (${transaction?.paymentMode})
-Thank you for shopping with us! Visit again.`;
-
-    const waUrl = `https://wa.me/${cleanMobile}?text=${encodeURIComponent(text)}`;
-    window.open(waUrl, '_blank');
-
-    setTimeout(() => setShowWhatsAppToast(false), 4000);
-  };
+  const festivalOfferName = settings?.milestoneName || "Milestone Festival Discount";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
-      <div className="relative w-full max-w-sm flex flex-col items-center my-6">
-        
-        {/* Prominent Back to POS / New Bill Button at Top */}
-        <button
-          onClick={onClose}
-          className="mb-4 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs shadow-xl shadow-cyan-500/30 transition-all active:scale-95 z-30"
-          title="Return to POS and start fresh bill"
-        >
-          <ArrowLeft className="w-4 h-4 stroke-[3]" />
-          <span>⬅ Back to POS / New Bill</span>
-        </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+      <div className="relative flex flex-col items-center max-w-md w-full">
+        {/* Back to POS / New Bill Button */}
+        <div className="w-full flex items-center justify-between mb-3 px-1">
+          <button
+            onClick={onClose}
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-cyan-300 hover:text-white border border-cyan-500/30 text-xs font-bold transition-all shadow-lg active:scale-95"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>⬅ Back to POS / New Bill</span>
+          </button>
 
-        {/* Golden/Cream Roller Graphic at top */}
-        <div className="relative w-64 h-6 rounded-full bg-gradient-to-r from-amber-600 via-amber-200 to-amber-700 shadow-xl border border-amber-400/50 flex items-center justify-center z-20">
+          <span className="text-[11px] font-mono text-emerald-400 font-bold bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-500/30">
+            ✓ Bill Finalized
+          </span>
+        </div>
+
+        {/* The Roller Mechanism Graphic */}
+        <div className="w-72 h-7 bg-gradient-to-r from-amber-800 via-amber-600 to-amber-900 rounded-t-xl border-t-2 border-x-2 border-amber-400/80 shadow-2xl relative flex items-center justify-center">
           <div className="w-56 h-1.5 bg-black/40 rounded-full shadow-inner" />
         </div>
 
@@ -248,6 +238,11 @@ Thank you for shopping with us! Visit again.`;
             <h2 className="text-base font-black tracking-tight uppercase text-slate-900">
               {settings?.martName || "SmartMart Hypermarket"}
             </h2>
+            {settings?.shopAddress && (
+              <p className="text-[9px] text-slate-600 font-sans leading-tight">
+                {settings.shopAddress}
+              </p>
+            )}
             <p className="text-[10px] text-slate-600">{settings?.tagline || "Autonomous Retail Terminal"}</p>
             <p className="text-[9px] text-slate-500 font-sans">GSTIN: {settings?.gstin || "29AAECS1234F1Z8"}</p>
             <p className="text-[9px] text-slate-500 font-sans">Helpline: {settings?.helpline || "+91 80 4961 8888"}</p>
@@ -271,10 +266,12 @@ Thank you for shopping with us! Visit again.`;
               <span>CUSTOMER:</span>
               <span className="font-bold">{activeCustomer?.name || "Guest Customer"} ({activeCustomer?.id || "GUEST"})</span>
             </div>
-            <div className="flex justify-between">
-              <span>LOYALTY RANK:</span>
-              <span className="font-bold text-amber-700">Rank #{activeCustomer?.rank || "—"}</span>
-            </div>
+            {settings?.rankSystemEnabled !== false && (
+              <div className="flex justify-between">
+                <span>LOYALTY RANK:</span>
+                <span className="font-bold text-amber-700">Rank #{activeCustomer?.rank || "—"}</span>
+              </div>
+            )}
           </div>
 
           {/* Items Table */}
@@ -319,7 +316,7 @@ Thank you for shopping with us! Visit again.`;
 
             {transaction?.milestoneDiscountAmount > 0 && (
               <div className="flex justify-between text-purple-800 font-semibold">
-                <span>Milestone Reward:</span>
+                <span>{festivalOfferName}:</span>
                 <span>-₹{transaction?.milestoneDiscountAmount?.toFixed(2)}</span>
               </div>
             )}
@@ -340,80 +337,59 @@ Thank you for shopping with us! Visit again.`;
               <span>PAYMENT MODE:</span>
               <strong className="uppercase">{transaction?.paymentMode}</strong>
             </div>
-
-            {transaction?.changeReturned > 0 && (
-              <div className="flex justify-between text-[10px] text-slate-600">
-                <span>CHANGE RETURNED:</span>
-                <span>₹{transaction?.changeReturned?.toFixed(2)}</span>
-              </div>
-            )}
           </div>
 
-          {/* Verification QR Code */}
-          <div className="pt-3 pb-1 flex flex-col items-center text-center space-y-1">
+          {/* Verification QR */}
+          <div className="pt-3 pb-1 flex flex-col items-center justify-center">
             {receiptQrUrl && (
-              <img src={receiptQrUrl} alt="Verify Receipt" className="w-20 h-20 border border-slate-300 p-0.5 bg-white" />
+              <img src={receiptQrUrl} alt="Verify Invoice" className="w-24 h-24 object-contain mix-blend-multiply" />
             )}
-            <span className="text-[8px] font-sans text-slate-500 uppercase tracking-widest">
-              Scan to Verify e-Invoice
+            <span className="text-[8px] text-slate-500 mt-1 uppercase font-mono">
+              Scan to verify digital invoice
             </span>
-            <p className="text-[9px] text-slate-700 font-bold pt-1">
-              *** THANK YOU FOR SHOPPING! ***
-            </p>
           </div>
 
-          {/* Zig-Zag Thermal Paper Cut Bottom */}
-          <div className="thermal-paper-jagged-bottom mt-2" />
+          {/* Jagged / Tear Bottom Edge */}
+          <div className="mt-4 pt-2 text-center text-[9px] text-slate-500 uppercase border-t border-dotted border-slate-400">
+            *** THANK YOU FOR SHOPPING! ***
+          </div>
         </div>
 
-        {/* Floating Action Buttons */}
-        <div className="w-full flex flex-wrap items-center justify-center gap-2 mt-5 z-20">
-          {/* Working Print Receipt Fix */}
+        {/* Action Controls Beneath Receipt */}
+        <div className="w-full mt-4 flex flex-wrap items-center justify-center gap-2">
+          {/* Print */}
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold shadow-lg transition-all active:scale-95 border border-slate-600"
-            title="Open dedicated print window"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30 transition-all active:scale-95"
           >
-            <Printer className="w-4 h-4 text-cyan-400" />
+            <Printer className="w-4 h-4" />
             <span>Print Receipt</span>
           </button>
 
-          {/* Re-Print */}
+          {/* Send via WhatsApp */}
           <button
-            onClick={handleReprint}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold shadow-lg transition-all active:scale-95 border border-slate-600"
-            title="Re-run thermal roller"
+            onClick={handleWhatsAppSend}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs shadow-lg shadow-emerald-700/30 transition-all active:scale-95"
           >
-            <RotateCcw className="w-4 h-4 text-amber-400" />
-            <span>Re-print</span>
+            <Send className="w-4 h-4" />
+            <span>Send Bill (WhatsApp)</span>
           </button>
 
-          {/* Send Bill (WhatsApp) */}
-          <button
-            onClick={handleSendWhatsApp}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 transition-all active:scale-95"
-            title="Send digital receipt to customer's WhatsApp"
-          >
-            <Send className="w-3.5 h-3.5" />
-            <span>Send Bill</span>
-          </button>
-
-          {/* Tear Receipt & Start New Bill */}
+          {/* Tear & Next Bill */}
           <button
             onClick={handleTear}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 text-xs font-black shadow-lg shadow-cyan-500/30 transition-all active:scale-95"
-            title="Tear receipt and start next customer"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 transition-all active:scale-95"
           >
-            <Scissors className="w-4 h-4 text-slate-950" />
+            <Scissors className="w-4 h-4 text-amber-400" />
             <span>Tear & Next</span>
           </button>
         </div>
 
-        {/* WhatsApp notification toast */}
+        {/* WhatsApp Simulation Toast */}
         {showWhatsAppToast && (
-          <div className="mt-3 text-xs bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-xl animate-fadeIn">
-            <Check className="w-4 h-4 text-emerald-400" />
-            <span>WhatsApp e-Bill sent to {activeCustomer?.mobile || "Customer"}!</span>
+          <div className="mt-2 px-3 py-1.5 rounded-xl bg-emerald-950 border border-emerald-500 text-emerald-300 text-xs font-semibold animate-fadeIn flex items-center gap-1.5">
+            <Check className="w-3.5 h-3.5" />
+            <span>Digital e-Invoice dispatched to {activeCustomer?.mobile || 'customer mobile'}!</span>
           </div>
         )}
       </div>

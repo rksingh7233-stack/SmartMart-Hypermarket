@@ -4,9 +4,11 @@ export const DEFAULT_SETTINGS = {
   securityQuestion: "What is the store branch code?",
   securityAnswer: "SM01",
   martName: "SmartMart Hypermarket",
+  shopAddress: "12/A, Metro Arcade, Indiranagar 100ft Road, Bangalore - 560038",
   tagline: "Next-Gen AI Autonomous Retail Terminal",
   gstin: "29AAECS1234F1Z8",
   helpline: "+91 80 4961 8888",
+  email: "store@smartmart.ai",
   counterId: "TERMINAL-04 (Express AI)",
   cashierName: "Aakash Mehta (ID: CS-882)",
   upiId: "smartmart.ai@icici",
@@ -14,8 +16,15 @@ export const DEFAULT_SETTINGS = {
   currencySymbol: "₹",
   voiceGreetingEnabled: true,
   scannerBeepEnabled: true,
+  milestoneName: "Diwali Festive Mega Discount",
+  milestoneEnabled: true,
+  rankSystemEnabled: true,
   milestoneTargetAmount: 10000,
   milestoneDiscountAmount: 500,
+  preferredCameraId: "",
+  printerMode: "bluetooth", // "bluetooth" | "usb"
+  connectedPrinter: "SmartPrint-BT80 (Thermal 80mm)",
+  printerStatus: "connected",
   discountSlabs: [
     { id: "slab-1", tier: "Platinum Tier", rankMin: 1, rankMax: 5, discountPct: 20, badgeColor: "cyan" },
     { id: "slab-2", tier: "Gold Tier", rankMin: 6, rankMax: 15, discountPct: 15, badgeColor: "amber" },
@@ -28,8 +37,8 @@ export const DEFAULT_SETTINGS = {
     { hour: "12 PM", footfall: 88, sales: 42500 },
     { hour: "02 PM", footfall: 65, sales: 29800 },
     { hour: "04 PM", footfall: 95, sales: 51200 },
-    { hour: "06 PM", footfall: 148, sales: 88900 }, // Peak
-    { hour: "08 PM", footfall: 162, sales: 96400 }, // Peak
+    { hour: "06 PM", footfall: 148, sales: 88900 },
+    { hour: "08 PM", footfall: 162, sales: 96400 },
     { hour: "10 PM", footfall: 74, sales: 34100 },
   ]
 };

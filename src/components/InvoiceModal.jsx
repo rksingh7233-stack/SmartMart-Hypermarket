@@ -1,8 +1,12 @@
 import React from 'react';
 import { X, Receipt, Calendar, CreditCard, Printer, ArrowLeft } from 'lucide-react';
+import { getSettings } from '../services/storage';
 
 export const InvoiceModal = ({ invoice, onClose }) => {
   if (!invoice) return null;
+
+  const settings = getSettings();
+  const festivalOfferName = invoice.milestoneName || settings?.milestoneName || "Milestone Festival Discount";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fadeIn">
@@ -30,35 +34,37 @@ export const InvoiceModal = ({ invoice, onClose }) => {
               <span className="font-bold text-cyan-300">{invoice.invoiceNo}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">Date & Time:</span>
+              <span className="text-slate-400">Transaction Date:</span>
               <span className="text-slate-200">{invoice.date}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">Payment Mode:</span>
-              <span className="px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/30 font-bold uppercase">
-                {invoice.paymentMode || "UPI"}
-              </span>
+              <span className="text-slate-400">Settlement Mode:</span>
+              <span className="text-emerald-400 font-bold uppercase">{invoice.paymentMode || "UPI"}</span>
             </div>
           </div>
 
           {/* Items Table */}
-          <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950/60">
-            <table className="w-full text-left border-collapse">
+          <div className="rounded-xl border border-slate-800 overflow-hidden bg-slate-950">
+            <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-slate-800 text-slate-400 text-[10px] uppercase bg-slate-900">
+                <tr className="border-b border-slate-800 bg-slate-900 text-slate-400 text-[10px] uppercase">
                   <th className="py-2 px-3">Item</th>
                   <th className="py-2 px-2 text-center">Qty</th>
                   <th className="py-2 px-2 text-right">Price</th>
                   <th className="py-2 px-3 text-right">Total</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-850">
+              <tbody className="divide-y divide-slate-800/60">
                 {(invoice.items || []).map((item, idx) => (
-                  <tr key={idx} className="text-slate-300">
-                    <td className="py-2 px-3 text-[11px] font-sans font-medium">{item.name}</td>
-                    <td className="py-2 px-2 text-center">{item.qty}</td>
-                    <td className="py-2 px-2 text-right">₹{item.price}</td>
-                    <td className="py-2 px-3 text-right text-slate-100 font-bold">₹{item.total}</td>
+                  <tr key={idx} className="hover:bg-slate-900/40">
+                    <td className="py-2 px-3 text-slate-200 truncate max-w-[140px] font-sans font-medium">
+                      {item.name}
+                    </td>
+                    <td className="py-2 px-2 text-center text-slate-400">{item.qty || item.quantity}</td>
+                    <td className="py-2 px-2 text-right text-slate-400">₹{item.price}</td>
+                    <td className="py-2 px-3 text-right font-bold text-cyan-300">
+                      ₹{((item.qty || item.quantity) * item.price).toFixed(2)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -81,7 +87,7 @@ export const InvoiceModal = ({ invoice, onClose }) => {
 
             {invoice.milestoneDiscountAmount > 0 && (
               <div className="flex justify-between text-purple-400">
-                <span>Milestone Reward:</span>
+                <span>{festivalOfferName}:</span>
                 <span>-₹{invoice.milestoneDiscountAmount?.toFixed(2)}</span>
               </div>
             )}
