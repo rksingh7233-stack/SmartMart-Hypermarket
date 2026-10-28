@@ -14,8 +14,7 @@ import {
   QrCode,
   X,
   LogOut,
-  LayoutDashboard,
-  ShoppingCart
+  Receipt
 } from 'lucide-react';
 import QRCode from 'qrcode';
 
@@ -24,8 +23,8 @@ export const Header = ({
   onOpenSettings, 
   activeCustomer,
   onOpenCustomerDisplay,
-  currentMode = 'billing', // 'billing' | 'manager'
-  onSwitchMode,
+  currentMode = 'billing', // 'billing'
+  onOpenRecentBills,
   onLogout 
 }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -90,7 +89,7 @@ export const Header = ({
                 </h1>
                 <span className="text-[11px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 flex items-center gap-1 shadow-inner">
                   <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-                  {currentMode === 'manager' ? "Manager Mode" : "Billing Counter"}
+                  Billing Counter
                 </span>
               </div>
               <div className="flex items-center gap-3 text-xs text-slate-400">
@@ -125,30 +124,18 @@ export const Header = ({
             </div>
           </div>
 
-          {/* Right: Actions, Mode Switch, Customer Display, Settings & Logout */}
+          {/* Right: Actions, Recent Bills, Customer Display, Settings & Logout */}
           <div className="flex items-center gap-2.5">
-            {/* Mode Switcher Button (Switch between Billing Counter and Manager Dashboard) */}
-            {onSwitchMode && (
+            {/* FEATURE 1: Recent 5 Bills Re-Print / WhatsApp Helper */}
+            {onOpenRecentBills && (
               <button
-                onClick={onSwitchMode}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 border ${
-                  currentMode === 'billing'
-                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 border-purple-500/40 text-white shadow-purple-600/20'
-                    : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 border-cyan-500/40 text-white shadow-cyan-600/20'
-                }`}
-                title={currentMode === 'billing' ? "Open Manager Dashboard" : "Switch back to Billing Counter"}
+                onClick={onOpenRecentBills}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-cyan-500/50 text-cyan-300 hover:text-cyan-200 text-xs font-semibold shadow-md active:scale-95 transition-all"
+                title="Quickly Re-Print or WhatsApp the last 5 transactions"
               >
-                {currentMode === 'billing' ? (
-                  <>
-                    <LayoutDashboard className="w-3.5 h-3.5" />
-                    <span>📊 Manager Dashboard</span>
-                  </>
-                ) : (
-                  <>
-                    <ShoppingCart className="w-3.5 h-3.5" />
-                    <span>🛒 Billing Counter</span>
-                  </>
-                )}
+                <Receipt className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="hidden sm:inline">🧾 Recent Bills (5)</span>
+                <span className="sm:hidden">🧾 Bills</span>
               </button>
             )}
 

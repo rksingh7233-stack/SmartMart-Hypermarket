@@ -25,7 +25,8 @@ import { ThermalReceiptModal } from './components/ThermalReceiptModal';
 import { InvoiceModal } from './components/InvoiceModal';
 import { NewProductModal } from './components/NewProductModal';
 import { NewCustomerModal } from './components/NewCustomerModal';
-import { Boxes, FileSpreadsheet, Plus } from 'lucide-react';
+import { RecentBillsDrawer } from './components/RecentBillsDrawer';
+import { Boxes, FileSpreadsheet, Plus, Download } from 'lucide-react';
 
 export function App() {
   // Routing: 'pos' (Cashier) or 'customer' (Customer Display Screen)
@@ -60,6 +61,7 @@ export function App() {
   // Modals state
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+  const [isRecentBillsOpen, setIsRecentBillsOpen] = useState(false);
   const [isNewProductOpen, setIsNewProductOpen] = useState(false);
   const [isNewCustomerOpen, setIsNewCustomerOpen] = useState(false);
   const [newCustomerInitialData, setNewCustomerInitialData] = useState(null);
@@ -471,7 +473,7 @@ export function App() {
         settings={settings}
         activeCustomer={activeCustomer}
         currentMode={currentMode}
-        onSwitchMode={() => setCurrentMode('manager')}
+        onOpenRecentBills={() => setIsRecentBillsOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onLogout={handleLogout}
         onOpenCustomerDisplay={() => {
@@ -515,18 +517,25 @@ export function App() {
                       📦 Product Stock & Pricing Manager (First-Time Store Setup)
                     </h3>
                     <p className="text-xs text-purple-300/80">
-                      Your store catalog is clean and empty. Upload your products via CSV/Excel or add items individually.
+                      Your store catalog is clean and empty. Upload your products via CSV, Excel (.xlsx/.xls) or PDF.
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => setIsBulkImportOpen(true)}
+                    className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-cyan-300 font-semibold text-xs shadow-md transition-all flex items-center gap-1.5 active:scale-95"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>📄 Download Sample Template</span>
+                  </button>
                   <button
                     onClick={() => setIsBulkImportOpen(true)}
                     className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md shadow-purple-600/30 transition-all flex items-center gap-1.5 active:scale-95"
                   >
                     <FileSpreadsheet className="w-4 h-4" />
-                    <span>Bulk Import (CSV / Excel)</span>
+                    <span>Bulk Import (CSV / Excel / PDF)</span>
                   </button>
                   <button
                     onClick={() => setIsNewProductOpen(true)}
@@ -541,7 +550,7 @@ export function App() {
               <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 space-y-1">
                 <p className="font-bold text-cyan-300">Friendly Setup Guide:</p>
                 <p className="text-slate-400 text-[11px]">
-                  Click <strong>"Bulk Import (CSV / Excel)"</strong> to download our standardized template, paste your product catalog from Excel, and drop it here to instantly populate your inventory. Once initial items are added, ongoing stock and price editing will be available in the <strong>Manager Dashboard</strong>.
+                  Click <strong>"Bulk Import (CSV / Excel / PDF)"</strong> to upload your own product list (CSV, Excel, or PDF) with smart auto-column matching, or download our sample template. Once initial items are added, ongoing stock and price editing will be available in the <strong>Manager Dashboard</strong>.
                 </p>
               </div>
             </div>
@@ -651,7 +660,7 @@ export function App() {
         onClose={() => setIsSettingsOpen(false)}
       />
 
-      {/* 5. Bulk CSV / Excel Import Modal */}
+      {/* 5. Bulk CSV / Excel / PDF Import Modal */}
       <BulkImportModal
         isOpen={isBulkImportOpen}
         onClose={() => setIsBulkImportOpen(false)}
@@ -661,7 +670,21 @@ export function App() {
         }}
       />
 
-      {/* 6. Add New Product Modal */}
+      {/* 6. Recent 5 Bills Re-Print / WhatsApp Helper Drawer */}
+      <RecentBillsDrawer
+        isOpen={isRecentBillsOpen}
+        onClose={() => setIsRecentBillsOpen(false)}
+        salesHistory={salesHistory}
+        settings={settings}
+        onReprint={(sale) => {
+          setReceiptData({
+            transaction: sale,
+            cart: sale.items || []
+          });
+        }}
+      />
+
+      {/* 7. Add New Product Modal */}
       <NewProductModal
         isOpen={isNewProductOpen}
         onClose={() => setIsNewProductOpen(false)}
