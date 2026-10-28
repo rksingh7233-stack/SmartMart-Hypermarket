@@ -1,28 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  initStorage, 
-  getCatalog, 
-  saveCatalog,
-  getCustomers, 
-  saveCustomers,
-  addCustomer,
-  getSettings, 
-  saveSettings,
-  getSalesHistory, 
-  recordSale,
-  updateCustomerHistory,
-  updateProductStock,
-  getAuthUser,
-  clearAuthSession,
-  getTrialInfo
-} from './services/storage';
+  dataService 
+} from './services/dataService';
 import { soundEngine } from './services/audioService';
 import { syncService } from './services/syncService';
 
 import { AuthView } from './components/AuthView';
-import { SettingsGateModal } from './components/SettingsGateModal';
+import { ManagerDashboard } from './components/ManagerDashboard';
 import { BulkImportModal } from './components/BulkImportModal';
-import { TrialExpiredModal } from './components/TrialExpiredModal';
 
 import { Header } from './components/Header';
 import { BarcodeScannerBar } from './components/BarcodeScannerBar';
@@ -40,6 +25,7 @@ import { ThermalReceiptModal } from './components/ThermalReceiptModal';
 import { InvoiceModal } from './components/InvoiceModal';
 import { NewProductModal } from './components/NewProductModal';
 import { NewCustomerModal } from './components/NewCustomerModal';
+import { Boxes, FileSpreadsheet, Plus } from 'lucide-react';
 
 export function App() {
   // Routing: 'pos' (Cashier) or 'customer' (Customer Display Screen)
@@ -54,15 +40,16 @@ export function App() {
     return 'pos';
   });
 
-  // Auth & 30-Day Free Trial State
-  const [currentUser, setCurrentUser] = useState(() => getAuthUser());
-  const [trialInfo, setTrialInfo] = useState(() => getTrialInfo());
+  // Auth User Session & Current Interface Mode ('billing' | 'manager')
+  const [currentUser, setCurrentUser] = useState(() => dataService.getAuthUser());
+  const [currentMode, setCurrentMode] = useState(() => dataService.getAuthUser()?.role || 'billing');
 
-  // Master state
+  // Master state (Multi-Tenant Isolated)
   const [catalog, setCatalog] = useState([]);
-  const [customers, setCustomers] = useState([]); // Starts EMPTY []
+  const [customers, setCustomers] = useState([]);
   const [settings, setSettings] = useState(null);
   const [salesHistory, setSalesHistory] = useState([]);
+  const [account, setAccount] = useState(null);
 
   // Active terminal state
   const [activeCustomer, setActiveCustomer] = useState(null);
@@ -71,7 +58,6 @@ export function App() {
   const [extraDiscount, setExtraDiscount] = useState(0);
 
   // Modals state
-  const [isSettingsGateOpen, setIsSettingsGateOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [isNewProductOpen, setIsNewProductOpen] = useState(false);
@@ -81,7 +67,7 @@ export function App() {
   const [paymentData, setPaymentData] = useState(null); // { mode, billing }
   const [receiptData, setReceiptData] = useState(null); // { transaction, cart }
 
-  // Detect URL Route changes (e.g., #/customer or /customer)
+  // Detect URL Route changes (e.g. #/customer or /customer)
   useEffect(() => {
     const handleLocationChange = () => {
       const path = window.location.pathname;
@@ -101,29 +87,45 @@ export function App() {
     };
   }, []);
 
-  // Initial load
+  // Load tenant-isolated data whenever currentUser session changes
   useEffect(() => {
-    initStorage();
-    const loadedCatalog = getCatalog();
-    const loadedCustomers = getCustomers(); // Starts EMPTY []
-    const loadedSettings = getSettings();
-    const loadedSales = getSalesHistory();
+    const loadTenantData = async () => {
+      if (!currentUser?.email) {
+        setCatalog([]);
+        setCustomers([]);
+        setSalesHistory([]);
+        setSettings(null);
+        setAccount(null);
+        setActiveCustomer(null);
+        return;
+      }
 
-    setCatalog(loadedCatalog);
-    setCustomers(loadedCustomers);
-    setSettings(loadedSettings);
-    setSalesHistory(loadedSales);
-    setTrialInfo(getTrialInfo());
+      const email = currentUser.email;
+      const [loadedAcc, loadedCat, loadedCust, loadedSet, loadedSales] = await Promise.all([
+        dataService.getAccountByEmail(email),
+        dataService.getCatalog(email),
+        dataService.getCustomers(email),
+        dataService.getSettings(email),
+        dataService.getSalesHistory(email)
+      ]);
 
-    // If there are any registered customers, select the first one, otherwise null
-    if (loadedCustomers.length > 0) {
-      setActiveCustomer(loadedCustomers[0]);
-    } else {
-      setActiveCustomer(null);
-    }
+      setAccount(loadedAcc);
+      setCatalog(loadedCat || []);
+      setCustomers(loadedCust || []);
+      setSettings(loadedSet);
+      setSalesHistory(loadedSales || []);
+
+      if (loadedCust && loadedCust.length > 0) {
+        setActiveCustomer(loadedCust[0]);
+      } else {
+        setActiveCustomer(null);
+      }
+    };
+
+    loadTenantData();
   }, [currentUser]);
 
-  // 1. DUAL SYNCHRONIZATION: Broadcast POS state to Customer Display Screen in real-time
+  // Synchronize with Customer Display via BroadcastChannel & LocalStorage
   useEffect(() => {
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     
@@ -149,7 +151,6 @@ export function App() {
     const totalDiscount = rankDiscountAmount + milestoneDiscountAmount + extraDiscountAmount;
     const totalPayable = Math.max(0, subtotal - totalDiscount);
 
-    // Determine current payment state for customer screen
     let paymentStatus = 'IDLE';
     let paidAmount = 0;
     let paymentMode = null;
@@ -165,13 +166,12 @@ export function App() {
       paymentMode = paymentData.mode;
     }
 
-    // Publish to BroadcastChannel & localStorage
     syncService.publish({
       customerName: activeCustomer?.name || null,
       customerId: activeCustomer?.id || null,
       customerAvatar: activeCustomer?.avatar || null,
-      customerRank: activeCustomer?.rank || null,
-      customerTier: activeCustomer?.tier || null,
+      customerRank: activeCustomer?.rank || 1,
+      customerTier: activeCustomer?.tier || "Member",
       itemsCount: cart.reduce((s, i) => s + i.quantity, 0),
       subtotal,
       discount: totalDiscount,
@@ -190,8 +190,8 @@ export function App() {
     setActiveCustomer(customer);
     if (autoVoice && settings?.voiceGreetingEnabled) {
       const greeting = customer.visits <= 1
-        ? `Welcome to SmartMart, ${customer.salutation || customer.name}! Enjoy your first visit perks and exclusive member discounts today.`
-        : `Welcome back, ${customer.salutation || customer.name}! Today is your ${customer.visits}th visit to our mall.`;
+        ? `Welcome to SmartMart, ${customer.salutation || customer.name}! Enjoy member discounts today.`
+        : `Welcome back, ${customer.salutation || customer.name}! Today is your ${customer.visits}th visit.`;
       
       soundEngine.speak(greeting);
     }
@@ -206,7 +206,7 @@ export function App() {
       const currentQty = cart[existingIndex].quantity;
       if (currentQty >= product.stock) {
         soundEngine.playErrorBuzz();
-        alert(`Cannot add more ${product.name}. Available stock limit reached (${product.stock} units).`);
+        alert(`Cannot add more ${product.name}. Stock limit reached (${product.stock} units).`);
         return;
       }
 
@@ -272,12 +272,12 @@ export function App() {
   };
 
   // Payment success handler
-  const handlePaymentSuccess = (transactionResult) => {
+  const handlePaymentSuccess = async (transactionResult) => {
     // 1. Deduct stock from catalog
     let updatedCatalog = [...catalog];
-    cart.forEach(cartItem => {
-      updatedCatalog = updateProductStock(cartItem.id, -cartItem.quantity);
-    });
+    for (const cartItem of cart) {
+      updatedCatalog = await dataService.updateProductStock(cartItem.id, -cartItem.quantity);
+    }
     setCatalog(updatedCatalog);
 
     // 2. Record sale
@@ -294,16 +294,16 @@ export function App() {
         total: i.quantity * i.price
       }))
     };
-    const updatedSales = recordSale(saleRecord);
+    const updatedSales = await dataService.recordSale(saleRecord);
     setSalesHistory(updatedSales);
 
-    // 3. Update customer history & spend if active customer
+    // 3. Update customer history if active customer
     if (activeCustomer) {
       const rankPct = (settings?.rankSystemEnabled !== false)
         ? (activeCustomer.rank <= 5 ? 20 : (activeCustomer.rank <= 15 ? 15 : 10))
         : 0;
 
-      const updatedCustomers = updateCustomerHistory(activeCustomer.id, {
+      const updatedCustomers = await dataService.updateCustomerHistory(activeCustomer.id, {
         id: saleRecord.id,
         invoiceNo: saleRecord.invoiceNo,
         date: saleRecord.date,
@@ -327,7 +327,7 @@ export function App() {
     // 4. Save current cart copy for thermal receipt modal
     const cartCopy = [...cart];
 
-    // 5. Close payment modal and launch Thermal Receipt Roll-out!
+    // 5. Close payment modal and launch Thermal Receipt
     setPaymentData(null);
     setReceiptData({
       transaction: saleRecord,
@@ -340,40 +340,65 @@ export function App() {
   };
 
   // Add Product to Catalog
-  const handleAddProduct = (newProduct) => {
+  const handleAddProduct = async (newProduct) => {
     const updated = [newProduct, ...catalog];
+    await dataService.saveCatalog(updated);
     setCatalog(updated);
-    saveCatalog(updated);
   };
 
-  // Add Customer (Real face descriptor & photo snapshot)
-  const handleAddCustomer = (newCustomer) => {
-    const updated = addCustomer(newCustomer);
+  // Add Customer
+  const handleAddCustomer = async (newCustomer) => {
+    const updated = await dataService.addCustomer(newCustomer);
     setCustomers(updated);
     setActiveCustomer(newCustomer);
   };
 
   // Update Settings
-  const handleSaveSettings = (newSettings) => {
+  const handleSaveSettings = async (newSettings) => {
+    await dataService.saveSettings(newSettings);
     setSettings(newSettings);
-    saveSettings(newSettings);
   };
 
   // Reset Daily Sales / Day End
-  const handleResetDailySales = (updatedSettings) => {
+  const handleResetDailySales = async () => {
+    const result = await dataService.clearDailySales();
     setSalesHistory([]);
-    if (updatedSettings) {
-      setSettings(updatedSettings);
+    if (result.updatedSettings) {
+      setSettings(result.updatedSettings);
     }
   };
 
-  // Handle Cashier Logout
+  // Safe Logout: Completely clears session & active screen state
   const handleLogout = () => {
-    clearAuthSession();
+    dataService.clearAuthSession();
     setCurrentUser(null);
+    setCurrentMode('billing');
+    setCatalog([]);
+    setCustomers([]);
+    setSalesHistory([]);
+    setSettings(null);
+    setAccount(null);
     setActiveCustomer(null);
     setCart([]);
     soundEngine.speak("Logged out of SmartMart terminal.");
+  };
+
+  // Login Success Handler (Receives account & desired slide mode)
+  const handleLoginSuccess = async (loggedAccount, selectedMode = 'billing') => {
+    setCurrentUser(dataService.getAuthUser());
+    setCurrentMode(selectedMode);
+    setAccount(loggedAccount);
+    const email = loggedAccount.email;
+    const [c, cust, s, sl] = await Promise.all([
+      dataService.getCatalog(email),
+      dataService.getCustomers(email),
+      dataService.getSettings(email),
+      dataService.getSalesHistory(email)
+    ]);
+    setCatalog(c || []);
+    setCustomers(cust || []);
+    setSettings(s);
+    setSalesHistory(sl || []);
   };
 
   // SCENARIO 1: RENDER CUSTOMER DISPLAY SCREEN IF ON /customer OR #/customer
@@ -392,35 +417,62 @@ export function App() {
   if (!currentUser) {
     return (
       <AuthView
-        onLoginSuccess={(user) => {
-          setCurrentUser(user);
-          setSettings(getSettings());
-          setTrialInfo(getTrialInfo());
-        }}
+        onLoginSuccess={handleLoginSuccess}
       />
     );
   }
 
-  // SCENARIO 3: RENDER 30-DAY FREE TRIAL EXPIRED SCREEN IF TRIAL ENDED
-  if (trialInfo?.isExpired) {
+  // SCENARIO 3: RENDER MANAGER DASHBOARD IF CURRENT MODE IS 'manager'
+  if (currentMode === 'manager') {
     return (
-      <TrialExpiredModal
-        onExtendSuccess={() => {
-          setTrialInfo(getTrialInfo());
-        }}
-      />
+      <>
+        <ManagerDashboard
+          account={account}
+          settings={settings}
+          catalog={catalog}
+          salesHistory={salesHistory}
+          onUpdateCatalog={async (newCat) => {
+            setCatalog(newCat);
+            await dataService.saveCatalog(newCat);
+          }}
+          onSaveSettings={handleSaveSettings}
+          onResetDailySales={handleResetDailySales}
+          onOpenBulkImport={() => setIsBulkImportOpen(true)}
+          onOpenNewProductModal={() => setIsNewProductOpen(true)}
+          onSwitchToBilling={() => setCurrentMode('billing')}
+          onLogout={handleLogout}
+        />
+
+        {/* Bulk Import Modal */}
+        <BulkImportModal
+          isOpen={isBulkImportOpen}
+          onClose={() => setIsBulkImportOpen(false)}
+          onImportSuccess={async () => {
+            const fresh = await dataService.getCatalog();
+            setCatalog(fresh);
+          }}
+        />
+
+        {/* Add Product Modal */}
+        <NewProductModal
+          isOpen={isNewProductOpen}
+          onClose={() => setIsNewProductOpen(false)}
+          onAddProduct={handleAddProduct}
+        />
+      </>
     );
   }
 
-  // SCENARIO 4: RENDER CASHIER POS TERMINAL
+  // SCENARIO 4: RENDER BILLING COUNTER TERMINAL
   return (
     <div className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col antialiased selection:bg-cyan-500 selection:text-black">
       {/* Top Header Navigation */}
       <Header 
         settings={settings}
         activeCustomer={activeCustomer}
-        trialInfo={trialInfo}
-        onOpenSettings={() => setIsSettingsGateOpen(true)}
+        currentMode={currentMode}
+        onSwitchMode={() => setCurrentMode('manager')}
+        onOpenSettings={() => setIsSettingsOpen(true)}
         onLogout={handleLogout}
         onOpenCustomerDisplay={() => {
           window.location.hash = '#/customer';
@@ -430,7 +482,7 @@ export function App() {
 
       {/* Main Two-Column Layout */}
       <main className="flex-1 max-w-[1920px] w-full mx-auto p-3 lg:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Left Column: POS Operations & Cart (7 of 12 columns) */}
+        {/* Left Column: POS Operations & Cart (7 of 12 cols) */}
         <section className="lg:col-span-7 flex flex-col space-y-4">
           {/* Search / Barcode Bar & Category Pills */}
           <BarcodeScannerBar
@@ -441,19 +493,61 @@ export function App() {
             onSelectCategory={setSelectedCategory}
           />
 
-          {/* Current Cart Items Table with Inline Price Edit & Quick Catalog */}
+          {/* Current Cart Items Table */}
           <CartTable
             cart={cart}
-            catalog={catalog}
             onUpdateQuantity={handleUpdateQuantity}
             onUpdatePrice={handleUpdatePrice}
             onRemoveItem={handleRemoveItem}
             onClearCart={handleClearCart}
-            onAddToCart={handleAddToCart}
-            selectedCategory={selectedCategory}
           />
 
-          {/* Dynamic Smart AI Cross-Sell / Habit Prompts Banner */}
+          {/* FIRST-TIME USER ONBOARDING: DISPLAY BULK IMPORT INSTRUCTIONS RIGHT BELOW CART WHEN CATALOG IS 0 */}
+          {catalog.length === 0 && (
+            <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-950/40 via-slate-900 to-slate-950 border border-purple-500/40 shadow-xl space-y-3.5 animate-fadeIn">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-purple-500/20 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2.5 rounded-xl bg-purple-900/60 border border-purple-500/40 text-purple-300">
+                    <Boxes className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-white">
+                      📦 Product Stock & Pricing Manager (First-Time Store Setup)
+                    </h3>
+                    <p className="text-xs text-purple-300/80">
+                      Your store catalog is clean and empty. Upload your products via CSV/Excel or add items individually.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setIsBulkImportOpen(true)}
+                    className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md shadow-purple-600/30 transition-all flex items-center gap-1.5 active:scale-95"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    <span>Bulk Import (CSV / Excel)</span>
+                  </button>
+                  <button
+                    onClick={() => setIsNewProductOpen(true)}
+                    className="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs shadow-md transition-all active:scale-95 flex items-center gap-1"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>+ Add Product</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 space-y-1">
+                <p className="font-bold text-cyan-300">Friendly Setup Guide:</p>
+                <p className="text-slate-400 text-[11px]">
+                  Click <strong>"Bulk Import (CSV / Excel)"</strong> to download our standardized template, paste your product catalog from Excel, and drop it here to instantly populate your inventory. Once initial items are added, ongoing stock and price editing will be available in the <strong>Manager Dashboard</strong>.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* AI Cross-Sell Banner */}
           <AICrossSellBanner
             cart={cart}
             activeCustomer={activeCustomer}
@@ -461,7 +555,7 @@ export function App() {
             onAddToCart={handleAddToCart}
           />
 
-          {/* Billing Subtotal, Rank Discount Breakdown & 3 Payment Action Buttons */}
+          {/* Billing Subtotal, Discounts & Payment Action Buttons */}
           <BillingSummary
             cart={cart}
             activeCustomer={activeCustomer}
@@ -472,9 +566,9 @@ export function App() {
           />
         </section>
 
-        {/* Right Column: AI Real Multi-Face Detection & Customer Profile (5 of 12 columns) */}
+        {/* Right Column: AI Real Multi-Face Detection & Customer Profile (5 of 12 cols) */}
         <section className="lg:col-span-5 flex flex-col space-y-4">
-          {/* Real Live AI Multi-Face Camera Feed with Overlay Canvas (0 faces = 0 boxes) */}
+          {/* Real Live AI Multi-Face Camera Feed with Overlay Canvas */}
           <MultiFaceCamera
             customers={customers}
             activeCustomer={activeCustomer}
@@ -484,20 +578,20 @@ export function App() {
               setNewCustomerInitialData(data);
               setIsNewCustomerOpen(true);
             }}
-            onOpenManualLookup={() => {
-              const input = document.querySelector('input[placeholder*="Search Saved ID"]');
-              if (input) input.focus();
-            }}
           />
 
-          {/* Active Customer Profile Box with Real Captured Snapshot & Voice Greeting Quote */}
+          {/* Unified Customer Profile & Search Box */}
           <CustomerProfileBox
             activeCustomer={activeCustomer}
             customers={customers}
             onSelectCustomer={(c) => handleSelectCustomer(c, true)}
+            onOpenNewCustomerModal={() => {
+              setNewCustomerInitialData(null);
+              setIsNewCustomerOpen(true);
+            }}
           />
 
-          {/* Customer Analytics & History Cards with Past Bill 3-Dots Invoice Trigger */}
+          {/* Customer Past Purchase Analytics & Invoices */}
           <CustomerAnalytics
             activeCustomer={activeCustomer}
             cart={cart}
@@ -509,7 +603,7 @@ export function App() {
 
       {/* MODALS */}
 
-      {/* 1. Payment Modal (Pay Cash, Pay Online UPI, Split Cash+UPI) */}
+      {/* 1. Payment Modal */}
       {paymentData && (
         <PaymentModal
           mode={paymentData.mode}
@@ -521,7 +615,7 @@ export function App() {
         />
       )}
 
-      {/* 2. Thermal Receipt Roll-out Modal with Print & Back to POS Button */}
+      {/* 2. Thermal Receipt Roll-out Modal (With Side-by-Side Dual Checkout Buttons) */}
       {receiptData && (
         <ThermalReceiptModal
           transaction={receiptData.transaction}
@@ -530,7 +624,6 @@ export function App() {
           settings={settings}
           onClose={() => {
             setReceiptData(null);
-            // Reset sync to idle
             syncService.publish({
               paymentStatus: 'IDLE',
               itemsCount: 0,
@@ -542,7 +635,7 @@ export function App() {
         />
       )}
 
-      {/* 3. Detailed Past Bill Invoice Modal with Back to POS Button */}
+      {/* 3. Detailed Invoice Modal */}
       {activeInvoiceModal && (
         <InvoiceModal
           invoice={activeInvoiceModal}
@@ -550,50 +643,32 @@ export function App() {
         />
       )}
 
-      {/* 4. Settings Gate Modal (Outside Settings Panel: First-time Create or Enter Password + Instant Masked OTP) */}
-      <SettingsGateModal
-        isOpen={isSettingsGateOpen}
-        onClose={() => setIsSettingsGateOpen(false)}
-        onUnlockSuccess={() => {
-          setIsSettingsGateOpen(false);
-          setIsSettingsOpen(true);
-        }}
-      />
-
-      {/* 5. Unlocked Settings & POS Control Panel */}
+      {/* 4. Hardware Settings Modal (Directly opens hardware tabs: Camera & Printer) */}
       <SettingsModal
         isOpen={isSettingsOpen}
         settings={settings}
-        catalog={catalog}
-        salesHistory={salesHistory}
         onSaveSettings={handleSaveSettings}
-        onOpenBulkImport={() => setIsBulkImportOpen(true)}
-        onUpdateCatalog={(newCatalog) => {
-          setCatalog(newCatalog);
-          saveCatalog(newCatalog);
-        }}
-        onResetDailySales={handleResetDailySales}
         onClose={() => setIsSettingsOpen(false)}
-        onViewInvoiceModal={(invoice) => setActiveInvoiceModal(invoice)}
       />
 
-      {/* 6. Bulk CSV / Excel Import Modal */}
+      {/* 5. Bulk CSV / Excel Import Modal */}
       <BulkImportModal
         isOpen={isBulkImportOpen}
         onClose={() => setIsBulkImportOpen(false)}
-        onImportSuccess={(count) => {
-          setCatalog(getCatalog());
+        onImportSuccess={async () => {
+          const fresh = await dataService.getCatalog();
+          setCatalog(fresh);
         }}
       />
 
-      {/* 7. Add New Product Modal */}
+      {/* 6. Add New Product Modal */}
       <NewProductModal
         isOpen={isNewProductOpen}
         onClose={() => setIsNewProductOpen(false)}
         onAddProduct={handleAddProduct}
       />
 
-      {/* 8. Register New Customer with Live Captured Face Snapshot */}
+      {/* 7. Register New Customer Modal (Starts at Rank 1) */}
       <NewCustomerModal
         isOpen={isNewCustomerOpen}
         initialData={newCustomerInitialData}

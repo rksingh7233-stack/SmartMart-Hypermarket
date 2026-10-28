@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Printer, 
-  Scissors, 
-  RotateCcw, 
-  Check, 
   Send, 
-  ArrowLeft,
+  Scissors, 
+  Check, 
+  Sparkles, 
+  ArrowLeft, 
+  Store, 
+  QrCode, 
+  Share2,
   Receipt
 } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -13,7 +16,7 @@ import { soundEngine } from '../services/audioService';
 
 export const ThermalReceiptModal = ({
   transaction,
-  cart,
+  cart = [],
   activeCustomer,
   settings,
   onClose
@@ -22,99 +25,82 @@ export const ThermalReceiptModal = ({
   const [isTorn, setIsTorn] = useState(false);
   const [showWhatsAppToast, setShowWhatsAppToast] = useState(false);
 
+  // Generate NPCI / Verification QR on mount
   useEffect(() => {
-    // Play thermal printer ratchet audio upon mount!
-    soundEngine.playPrinterRollSound();
+    soundEngine.playCashDrawerDing();
 
-    // Generate digital receipt verification QR
-    const verifyPayload = JSON.stringify({
-      mart: settings?.martName || "SmartMart Hypermarket",
-      invoice: transaction?.invoiceNo,
+    const invoicePayload = JSON.stringify({
+      inv: transaction?.invoiceNo,
+      date: transaction?.date,
       total: transaction?.totalPaid,
-      customer: activeCustomer?.name || "Customer",
-      verified: true
+      itemsCount: cart.length,
+      store: settings?.martName,
+      status: 'VERIFIED_TAX_INVOICE'
     });
 
-    QRCode.toDataURL(verifyPayload, {
+    QRCode.toDataURL(invoicePayload, {
       width: 140,
       margin: 1,
-      color: { dark: '#111827', light: '#fdfbf7' }
+      color: { dark: '#0f172a', light: '#ffffff' }
     })
     .then(url => setReceiptQrUrl(url))
     .catch(err => console.error(err));
-  }, [settings, transaction, activeCustomer]);
+  }, [transaction, cart, settings]);
 
-  // Working Dedicated Print Window Fix: Opens isolated clean print window to prevent blank pages!
   const handlePrint = () => {
-    soundEngine.playPrinterRollSound();
-
-    const slipElement = document.getElementById('thermal-paper-slip');
-    if (!slipElement) {
-      window.print();
-      return;
-    }
-
-    const festivalOfferName = settings?.milestoneName || "Milestone Festival Discount";
-
-    const printWindow = window.open('', '_blank', 'width=420,height=750');
+    soundEngine.playScannerBeep();
+    const printWindow = window.open('', '_blank', 'width=380,height=600');
     if (printWindow) {
       printWindow.document.write(`
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Receipt - ${transaction?.invoiceNo || 'Print'}</title>
+          <title>Receipt - ${transaction?.invoiceNo}</title>
           <style>
-            @page {
-              margin: 0;
-              size: 80mm auto;
-            }
+            @page { margin: 0; size: 80mm auto; }
             body {
               font-family: 'Courier New', Courier, monospace;
+              width: 76mm;
+              margin: 0 auto;
+              padding: 4mm 2mm;
               font-size: 11px;
-              color: #000;
-              margin: 0;
-              padding: 10px 14px;
-              width: 72mm;
-              background: #fff;
               line-height: 1.35;
+              color: #000;
             }
             .text-center { text-align: center; }
             .text-right { text-align: right; }
             .font-bold { font-weight: bold; }
-            .border-b-dashed { border-bottom: 1px dashed #333; padding-bottom: 6px; margin-bottom: 6px; }
-            .border-t-dashed { border-top: 1px dashed #333; padding-top: 6px; margin-top: 6px; }
-            table { width: 100%; border-collapse: collapse; }
-            th { text-align: left; border-bottom: 1px solid #333; font-size: 10px; }
-            td { padding: 2px 0; }
-            .qr-box { text-align: center; margin-top: 10px; }
-            .qr-box img { width: 110px; height: 110px; }
+            .border-b-dashed { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
+            .border-t-dashed { border-top: 1px dashed #000; padding-top: 6px; margin-top: 6px; }
+            table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+            th, td { padding: 2px 0; }
+            .qr-box { text-align: center; margin: 8px 0; }
+            .qr-box img { width: 100px; height: 100px; }
           </style>
         </head>
         <body>
           <div class="text-center border-b-dashed">
-            <h2 style="margin: 0; font-size: 15px; font-weight: bold;">${settings?.martName || "SmartMart Hypermarket"}</h2>
-            ${settings?.shopAddress ? `<div style="font-size: 9px; color: #444; margin: 2px 0;">${settings.shopAddress}</div>` : ''}
-            <div style="font-size: 10px; color: #555;">${settings?.tagline || "Autonomous Retail Terminal"}</div>
-            <div style="font-size: 9px; color: #666;">GSTIN: ${settings?.gstin || "29AAECS1234F1Z8"}</div>
-            <div style="font-size: 9px; color: #666;">Helpline: ${settings?.helpline || "+91 80 4961 8888"}</div>
+            <div style="font-size: 16px; font-weight: bold;">${settings?.martName || 'SmartMart AI'}</div>
+            <div>${settings?.shopAddress || 'Autonomous Express Mall, Tech Zone'}</div>
+            <div>Phone: ${settings?.helpline || '+91 98765 43210'}</div>
+            <div>GSTIN: ${settings?.gstin || '07AAAAA0000A1Z5'}</div>
           </div>
 
           <div class="border-b-dashed" style="font-size: 10px;">
-            <div><strong>INVOICE #:</strong> ${transaction?.invoiceNo}</div>
-            <div><strong>DATE/TIME:</strong> ${transaction?.date}</div>
-            <div><strong>TERMINAL:</strong> ${settings?.counterId || "TERMINAL-04"}</div>
-            <div><strong>CUSTOMER:</strong> ${activeCustomer?.name || "Walk-in Guest"} (${activeCustomer?.id || "GUEST"})</div>
-            ${settings?.rankSystemEnabled !== false ? `<div><strong>LOYALTY RANK:</strong> Rank #${activeCustomer?.rank || "—"}</div>` : ''}
+            <div>Invoice: <strong>${transaction?.invoiceNo}</strong></div>
+            <div>Date: ${transaction?.date} | Counter: ${settings?.counterId || '01'}</div>
+            <div>Customer: ${activeCustomer?.name || 'Walk-in Guest'} (${activeCustomer?.id || 'GUEST'})</div>
+            <div>Loyalty Rank: #${activeCustomer?.rank || 1}</div>
           </div>
 
           <div class="border-b-dashed">
             <table>
               <thead>
                 <tr>
-                  <th>Item</th>
+                  <th style="text-align: left;">Item</th>
                   <th class="text-center">Qty</th>
-                  <th class="text-right">Rate</th>
-                  <th class="text-right">Amt</th>
+                  <th class="text-right">Price</th>
+                  <th class="text-right">Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -170,7 +156,7 @@ export const ThermalReceiptModal = ({
 
           <div class="text-center" style="margin-top: 12px; font-size: 9px; color: #666;">
             *** THANK YOU FOR SHOPPING! ***<br>
-            Powered by SmartMart AI Engine
+            Powered by SmartMart AI POS
           </div>
         </body>
         </html>
@@ -187,9 +173,27 @@ export const ThermalReceiptModal = ({
   const handleWhatsAppSend = () => {
     soundEngine.playScannerBeep();
     setShowWhatsAppToast(true);
+
+    const cleanPhone = (activeCustomer?.mobile || '').replace(/\D/g, '');
+    const shopName = settings?.martName || "SmartMart AI";
+    const amount = (transaction?.totalPaid || 0).toFixed(2);
+    const invoiceNo = transaction?.invoiceNo || `INV-${Date.now().toString().slice(-6)}`;
+    const custName = activeCustomer?.name || "Customer";
+    
+    const textMsg = `*${shopName} — Digital Bill Receipt*\n` +
+      `Hello ${custName},\n` +
+      `Invoice: ${invoiceNo}\n` +
+      `Total Paid: ₹${amount} (${transaction?.paymentMode?.toUpperCase() || 'PAID'})\n` +
+      `Thank you for shopping with us!`;
+
+    if (cleanPhone && cleanPhone.length >= 10) {
+      const waUrl = `https://wa.me/${cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone}?text=${encodeURIComponent(textMsg)}`;
+      window.open(waUrl, '_blank');
+    }
+
     setTimeout(() => {
       setShowWhatsAppToast(false);
-    }, 3500);
+    }, 4000);
   };
 
   const handleTear = () => {
@@ -200,7 +204,7 @@ export const ThermalReceiptModal = ({
     }, 450);
   };
 
-  const festivalOfferName = settings?.milestoneName || "Milestone Festival Discount";
+  const festivalOfferName = settings?.milestoneName || "Festival Offer Discount";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
@@ -220,122 +224,120 @@ export const ThermalReceiptModal = ({
           </span>
         </div>
 
-        {/* The Roller Mechanism Graphic */}
-        <div className="w-72 h-7 bg-gradient-to-r from-amber-800 via-amber-600 to-amber-900 rounded-t-xl border-t-2 border-x-2 border-amber-400/80 shadow-2xl relative flex items-center justify-center">
-          <div className="w-56 h-1.5 bg-black/40 rounded-full shadow-inner" />
-        </div>
-
-        {/* The Rolling Thermal Paper */}
+        {/* Paper Thermal Receipt Container */}
         <div 
-          id="thermal-paper-slip"
-          className={`w-full thermal-paper rounded-b-sm p-6 shadow-2xl animate-receipt-roll transition-all duration-500 font-mono text-[11px] text-slate-900 border-x border-slate-300 ${
-            isTorn ? 'translate-y-24 opacity-0 rotate-2' : ''
+          className={`w-full max-w-sm bg-white text-slate-900 p-6 rounded-t-2xl shadow-2xl font-mono text-xs border border-slate-300 transition-all duration-500 ${
+            isTorn ? 'translate-y-96 opacity-0 rotate-6' : 'animate-receipt-roll'
           }`}
-          style={{ width: '320px' }}
         >
-          {/* Header */}
-          <div className="border-b border-dashed border-slate-400 pb-3 text-center space-y-0.5">
-            <h2 className="text-base font-black tracking-tight uppercase text-slate-900">
-              {settings?.martName || "SmartMart Hypermarket"}
+          {/* Store Header */}
+          <div className="text-center pb-3 border-b border-dashed border-slate-400 space-y-0.5">
+            <h2 className="text-lg font-black tracking-tight text-slate-950">
+              {settings?.martName || "SmartMart AI"}
             </h2>
-            {settings?.shopAddress && (
-              <p className="text-[9px] text-slate-600 font-sans leading-tight">
-                {settings.shopAddress}
-              </p>
-            )}
-            <p className="text-[10px] text-slate-600">{settings?.tagline || "Autonomous Retail Terminal"}</p>
-            <p className="text-[9px] text-slate-500 font-sans">GSTIN: {settings?.gstin || "29AAECS1234F1Z8"}</p>
-            <p className="text-[9px] text-slate-500 font-sans">Helpline: {settings?.helpline || "+91 80 4961 8888"}</p>
+            <p className="text-[10px] text-slate-600">
+              {settings?.shopAddress || "Autonomous Express Mall, Tech Zone"}
+            </p>
+            <p className="text-[10px] text-slate-600">
+              Helpline: {settings?.helpline || "+91 98765 43210"}
+            </p>
+            <p className="text-[9px] text-slate-500 font-bold">
+              GSTIN: {settings?.gstin || "07AAAAA0000A1Z5"}
+            </p>
           </div>
 
-          {/* Bill Meta */}
-          <div className="py-2.5 border-b border-dashed border-slate-400 space-y-1 text-[10px]">
+          {/* Invoice Metadata */}
+          <div className="py-2.5 border-b border-dashed border-slate-400 text-[10px] space-y-0.5 text-slate-700">
             <div className="flex justify-between">
-              <span>INVOICE #:</span>
-              <strong className="font-bold">{transaction?.invoiceNo}</strong>
+              <span>Invoice No:</span>
+              <span className="font-bold text-slate-950">{transaction?.invoiceNo}</span>
             </div>
             <div className="flex justify-between">
-              <span>DATE/TIME:</span>
+              <span>Date & Time:</span>
               <span>{transaction?.date}</span>
             </div>
             <div className="flex justify-between">
-              <span>TERMINAL:</span>
-              <span>{settings?.counterId || "TERMINAL-04"}</span>
+              <span>Cashier / Counter:</span>
+              <span>{settings?.cashierName || "Aakash"} (TERMINAL-01)</span>
             </div>
-            <div className="flex justify-between">
-              <span>CUSTOMER:</span>
-              <span className="font-bold">{activeCustomer?.name || "Guest Customer"} ({activeCustomer?.id || "GUEST"})</span>
+            <div className="flex justify-between pt-1 border-t border-slate-200">
+              <span>Customer:</span>
+              <span className="font-bold text-slate-950">
+                {activeCustomer?.name || "Walk-in Guest"}
+              </span>
             </div>
-            {settings?.rankSystemEnabled !== false && (
-              <div className="flex justify-between">
-                <span>LOYALTY RANK:</span>
-                <span className="font-bold text-amber-700">Rank #{activeCustomer?.rank || "—"}</span>
-              </div>
-            )}
+            <div className="flex justify-between text-[9px] text-slate-600">
+              <span>Customer ID / Rank:</span>
+              <span>{activeCustomer?.id || "GUEST"} • Rank #{activeCustomer?.rank || 1}</span>
+            </div>
           </div>
 
           {/* Items Table */}
-          <div className="py-2 border-b border-dashed border-slate-400">
-            <table className="w-full text-left">
+          <div className="py-2.5 border-b border-dashed border-slate-400">
+            <table className="w-full text-left text-[10px]">
               <thead>
-                <tr className="border-b border-slate-400 text-[9px] uppercase font-bold">
-                  <th className="py-1">Item</th>
-                  <th className="py-1 text-center">Qty</th>
-                  <th className="py-1 text-right">Rate</th>
-                  <th className="py-1 text-right">Amt</th>
+                <tr className="border-b border-slate-300 font-bold text-slate-800">
+                  <th className="pb-1">Item</th>
+                  <th className="pb-1 text-center">Qty</th>
+                  <th className="pb-1 text-right">Price</th>
+                  <th className="pb-1 text-right">Amt</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-dotted divide-slate-300">
+              <tbody className="divide-y divide-slate-100">
                 {cart.map((item, idx) => (
-                  <tr key={idx} className="leading-tight">
-                    <td className="py-1 pr-1 truncate max-w-[120px] font-sans font-medium text-[10px]">
+                  <tr key={idx} className="py-0.5">
+                    <td className="py-1 font-semibold text-slate-900 truncate max-w-[120px]">
                       {item.name}
                     </td>
                     <td className="py-1 text-center">{item.quantity}</td>
                     <td className="py-1 text-right">₹{item.price}</td>
-                    <td className="py-1 text-right font-bold">₹{(item.quantity * item.price).toFixed(2)}</td>
+                    <td className="py-1 text-right font-bold">
+                      ₹{(item.quantity * item.price).toFixed(2)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          {/* Totals & Savings */}
+          {/* Financial Breakdown */}
           <div className="py-2.5 border-b border-dashed border-slate-400 space-y-1 text-[11px]">
             <div className="flex justify-between text-slate-700">
               <span>Gross Subtotal:</span>
-              <span>₹{transaction?.subtotal?.toFixed(2)}</span>
+              <span>₹{(transaction?.subtotal || 0).toFixed(2)}</span>
             </div>
 
             {transaction?.rankDiscountAmount > 0 && (
-              <div className="flex justify-between text-emerald-800 font-semibold">
-                <span>Rank VIP Discount:</span>
-                <span>-₹{transaction?.rankDiscountAmount?.toFixed(2)}</span>
+              <div className="flex justify-between text-emerald-700">
+                <span>Rank Loyalty Discount:</span>
+                <span>-₹{(transaction.rankDiscountAmount).toFixed(2)}</span>
               </div>
             )}
 
             {transaction?.milestoneDiscountAmount > 0 && (
-              <div className="flex justify-between text-purple-800 font-semibold">
+              <div className="flex justify-between text-purple-700">
                 <span>{festivalOfferName}:</span>
-                <span>-₹{transaction?.milestoneDiscountAmount?.toFixed(2)}</span>
+                <span>-₹{(transaction.milestoneDiscountAmount).toFixed(2)}</span>
               </div>
             )}
 
             {transaction?.extraDiscountAmount > 0 && (
-              <div className="flex justify-between text-emerald-800 font-semibold">
-                <span>Special Cashier VIP:</span>
-                <span>-₹{transaction?.extraDiscountAmount?.toFixed(2)}</span>
+              <div className="flex justify-between text-blue-700">
+                <span>Cashier VIP Discount:</span>
+                <span>-₹{(transaction.extraDiscountAmount).toFixed(2)}</span>
               </div>
             )}
 
-            <div className="pt-1.5 border-t border-slate-400 flex justify-between text-sm font-black text-slate-950">
+            <div className="pt-2 border-t border-slate-400 flex justify-between items-center text-sm font-black text-slate-950">
               <span>TOTAL PAID:</span>
-              <span>₹{transaction?.totalPaid?.toFixed(2)}</span>
+              <span className="text-base font-extrabold">₹{(transaction?.totalPaid || 0).toFixed(2)}</span>
             </div>
 
-            <div className="flex justify-between text-[10px] text-slate-600 pt-0.5">
-              <span>PAYMENT MODE:</span>
-              <strong className="uppercase">{transaction?.paymentMode}</strong>
+            <div className="flex justify-between items-center text-[10px] text-slate-600 pt-0.5">
+              <span>Payment Mode:</span>
+              <span className="font-bold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded">
+                {transaction?.paymentMode?.toUpperCase() || 'UPI'}
+              </span>
             </div>
           </div>
 
@@ -355,33 +357,35 @@ export const ThermalReceiptModal = ({
           </div>
         </div>
 
-        {/* Action Controls Beneath Receipt */}
-        <div className="w-full mt-4 flex flex-wrap items-center justify-center gap-2">
-          {/* Print */}
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30 transition-all active:scale-95"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Print Receipt</span>
-          </button>
+        {/* Dual Side-by-Side Action Controls Beneath Receipt */}
+        <div className="w-full mt-4 space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            {/* 🖨️ Print Receipt */}
+            <button
+              onClick={handlePrint}
+              className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30 transition-all active:scale-95 flex items-center justify-center gap-1.5"
+            >
+              <Printer className="w-4 h-4" />
+              <span>🖨️ Print Receipt</span>
+            </button>
 
-          {/* Send via WhatsApp */}
-          <button
-            onClick={handleWhatsAppSend}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs shadow-lg shadow-emerald-700/30 transition-all active:scale-95"
-          >
-            <Send className="w-4 h-4" />
-            <span>Send Bill (WhatsApp)</span>
-          </button>
+            {/* 💬 Send on WhatsApp */}
+            <button
+              onClick={handleWhatsAppSend}
+              className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 transition-all active:scale-95 flex items-center justify-center gap-1.5"
+            >
+              <Send className="w-4 h-4" />
+              <span>💬 Send on WhatsApp</span>
+            </button>
+          </div>
 
           {/* Tear & Next Bill */}
           <button
             onClick={handleTear}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 transition-all active:scale-95"
+            className="w-full py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white font-bold text-xs border border-slate-700/80 transition-all active:scale-95 flex items-center justify-center gap-1.5"
           >
-            <Scissors className="w-4 h-4 text-amber-400" />
-            <span>Tear & Next</span>
+            <Scissors className="w-3.5 h-3.5 text-amber-400" />
+            <span>Tear & Next Bill</span>
           </button>
         </div>
 
@@ -389,7 +393,7 @@ export const ThermalReceiptModal = ({
         {showWhatsAppToast && (
           <div className="mt-2 px-3 py-1.5 rounded-xl bg-emerald-950 border border-emerald-500 text-emerald-300 text-xs font-semibold animate-fadeIn flex items-center gap-1.5">
             <Check className="w-3.5 h-3.5" />
-            <span>Digital e-Invoice dispatched to {activeCustomer?.mobile || 'customer mobile'}!</span>
+            <span>Digital e-Invoice dispatched to {activeCustomer?.mobile || 'customer WhatsApp'}!</span>
           </div>
         )}
       </div>

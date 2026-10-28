@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, 
-  Lock, 
+  Settings, 
   Clock, 
   Calendar, 
   Radio, 
@@ -14,7 +14,8 @@ import {
   QrCode,
   X,
   LogOut,
-  ShieldCheck
+  LayoutDashboard,
+  ShoppingCart
 } from 'lucide-react';
 import QRCode from 'qrcode';
 
@@ -23,7 +24,8 @@ export const Header = ({
   onOpenSettings, 
   activeCustomer,
   onOpenCustomerDisplay,
-  trialInfo,
+  currentMode = 'billing', // 'billing' | 'manager'
+  onSwitchMode,
   onLogout 
 }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -70,134 +72,154 @@ export const Header = ({
   };
 
   return (
-    <header className="border-b border-cyan-500/20 bg-[#0c1222]/90 backdrop-blur-md px-4 py-3 sticky top-0 z-30">
-      <div className="max-w-[1920px] mx-auto flex flex-wrap items-center justify-between gap-3">
-        {/* Left: Branding & Terminal Badges */}
-        <div className="flex items-center gap-3">
-          <div className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/30">
-            <Sparkles className="w-6 h-6 text-white animate-pulse" />
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-[#090d16] animate-ping" />
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-[#090d16]" />
+    <>
+      <header className="border-b border-cyan-500/20 bg-[#0c1222]/90 backdrop-blur-md px-4 py-3 sticky top-0 z-30">
+        <div className="max-w-[1920px] mx-auto flex flex-wrap items-center justify-between gap-3">
+          {/* Left: Branding & Terminal Badges */}
+          <div className="flex items-center gap-3">
+            <div className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/30">
+              <Sparkles className="w-6 h-6 text-white animate-pulse" />
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-[#090d16] animate-ping" />
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-[#090d16]" />
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-300 bg-clip-text text-transparent">
+                  {settings?.martName || "SmartMart AI"}
+                </h1>
+                <span className="text-[11px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 flex items-center gap-1 shadow-inner">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                  {currentMode === 'manager' ? "Manager Mode" : "Billing Counter"}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-slate-400">
+                <span className="flex items-center gap-1 text-slate-300">
+                  <Store className="w-3.5 h-3.5 text-cyan-400" />
+                  {settings?.counterId || "TERMINAL-01"}
+                </span>
+                <span className="text-slate-600">•</span>
+                <span className="flex items-center gap-1 text-slate-400">
+                  <UserCheck className="w-3.5 h-3.5 text-slate-400" />
+                  Staff: <span className="text-slate-300 font-medium">{settings?.cashierName?.split(' ')[0] || "Cashier"}</span>
+                </span>
+              </div>
+            </div>
           </div>
 
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-300 bg-clip-text text-transparent">
-                {settings?.martName || "SmartMart AI"}
-              </h1>
-              <span className="text-[11px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 flex items-center gap-1 shadow-inner">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-                Smart POS Terminal
-              </span>
+          {/* Center: Real-Time CV & Soundbox Engine Status Indicators */}
+          <div className="hidden lg:flex items-center gap-2 bg-slate-900/80 border border-slate-800 rounded-lg p-1.5 text-xs">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 text-emerald-400 font-medium">
+              <Radio className="w-3.5 h-3.5 animate-pulse text-emerald-400" />
+              <span>Multi-Face CV: <strong className="text-emerald-300">Active</strong></span>
             </div>
-            <div className="flex items-center gap-3 text-xs text-slate-400">
-              <span className="flex items-center gap-1 text-slate-300">
-                <Store className="w-3.5 h-3.5 text-cyan-400" />
-                {settings?.counterId || "TERMINAL-04 (Express AI)"}
-              </span>
-              <span className="text-slate-600">•</span>
-              <span className="flex items-center gap-1 text-slate-400">
-                <UserCheck className="w-3.5 h-3.5 text-slate-400" />
-                Cashier: <span className="text-slate-300 font-medium">{settings?.cashierName?.split(' ')[0] || "Aakash"}</span>
-              </span>
+
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 text-cyan-400 font-medium">
+              <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
+              <span>AI Soundbox: <strong className="text-cyan-300">Synced</strong></span>
             </div>
+
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 text-purple-400 font-medium">
+              <Cpu className="w-3.5 h-3.5 text-purple-400" />
+              <span>Sync: <strong className="text-purple-300">BroadcastChannel</strong></span>
+            </div>
+          </div>
+
+          {/* Right: Actions, Mode Switch, Customer Display, Settings & Logout */}
+          <div className="flex items-center gap-2.5">
+            {/* Mode Switcher Button (Switch between Billing Counter and Manager Dashboard) */}
+            {onSwitchMode && (
+              <button
+                onClick={onSwitchMode}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 border ${
+                  currentMode === 'billing'
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 border-purple-500/40 text-white shadow-purple-600/20'
+                    : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 border-cyan-500/40 text-white shadow-cyan-600/20'
+                }`}
+                title={currentMode === 'billing' ? "Open Manager Dashboard" : "Switch back to Billing Counter"}
+              >
+                {currentMode === 'billing' ? (
+                  <>
+                    <LayoutDashboard className="w-3.5 h-3.5" />
+                    <span>📊 Manager Dashboard</span>
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCart className="w-3.5 h-3.5" />
+                    <span>🛒 Billing Counter</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* Dedicated Customer Display Toggle Button */}
+            <div className="flex items-center">
+              <button
+                onClick={handleOpenCustomerDisplay}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-l-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
+                title="Open Customer Display in a new tab"
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">📱 Customer Display</span>
+                <span className="sm:hidden">📱 Screen</span>
+                <ExternalLink className="w-3 h-3 opacity-70" />
+              </button>
+              <button
+                onClick={() => setShowMobileModal(true)}
+                className="p-1.5 rounded-r-xl bg-emerald-800 hover:bg-emerald-700 text-emerald-200 border-l border-emerald-500/40"
+                title="Scan QR to open on mobile phone"
+              >
+                <QrCode className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Live Clock & Date */}
+            <div className="hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-cyan-500/30 text-xs shadow-inner">
+              <div className="flex items-center gap-1.5 text-slate-300 font-mono">
+                <Calendar className="w-3.5 h-3.5 text-cyan-400" />
+                <span>{formattedDate}</span>
+              </div>
+              <span className="text-cyan-700">|</span>
+              <div className="flex items-center gap-1.5 text-cyan-300 font-mono font-bold tracking-wider">
+                <Clock className="w-3.5 h-3.5 text-cyan-400 animate-spin" style={{ animationDuration: '60s' }} />
+                <span>{formattedTime}</span>
+              </div>
+            </div>
+
+            {/* Settings Button: Opens hardware settings directly on Billing Counter without password */}
+            {onOpenSettings && (
+              <button
+                onClick={onOpenSettings}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-cyan-950 border border-cyan-500/40 hover:border-cyan-400 text-cyan-200 hover:text-white transition-all text-xs font-semibold shadow-md active:scale-95 group"
+                title="Open Hardware & Terminal Settings"
+              >
+                <Settings className="w-3.5 h-3.5 text-cyan-400 group-hover:rotate-45 transition-transform" />
+                <span className="hidden sm:inline">Settings</span>
+              </button>
+            )}
+
+            {/* User Logout Button */}
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-rose-950/60 border border-slate-700 hover:border-rose-500/50 text-slate-300 hover:text-rose-200 transition-all text-xs font-semibold shadow-md active:scale-95 group"
+                title="Log Out of Store Session"
+              >
+                <LogOut className="w-3.5 h-3.5 text-slate-400 group-hover:text-rose-400" />
+                <span className="hidden lg:inline">Logout</span>
+              </button>
+            )}
           </div>
         </div>
+      </header>
 
-        {/* Center: Real-Time CV & Soundbox Engine Status Indicators */}
-        <div className="hidden lg:flex items-center gap-2 bg-slate-900/80 border border-slate-800 rounded-lg p-1.5 text-xs">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 text-emerald-400 font-medium">
-            <Radio className="w-3.5 h-3.5 animate-pulse text-emerald-400" />
-            <span>Multi-Face CV: <strong className="text-emerald-300">Active</strong></span>
-          </div>
-
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 text-cyan-400 font-medium">
-            <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
-            <span>AI Soundbox: <strong className="text-cyan-300">Synced</strong></span>
-          </div>
-
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 text-purple-400 font-medium">
-            <Cpu className="w-3.5 h-3.5 text-purple-400" />
-            <span>Sync: <strong className="text-purple-300">BroadcastChannel</strong></span>
-          </div>
-        </div>
-
-        {/* Right: Actions, Free Trial Badge, Live Clock, Settings & Logout */}
-        <div className="flex items-center gap-2.5">
-          {/* 30-Day Free Trial Remaining Days Badge */}
-          <div 
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-cyan-950/80 border border-cyan-500/30 text-cyan-300 font-mono text-xs shadow-inner"
-            title="30-Day Free Demo Trial License"
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-semibold">{trialInfo?.daysRemaining ?? 30} Days Left</span>
-            <span className="text-[10px] text-cyan-400/80 hidden xl:inline">(Free Trial)</span>
-          </div>
-
-          {/* Dedicated Customer Display Toggle Button */}
-          <div className="flex items-center">
-            <button
-              onClick={handleOpenCustomerDisplay}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-l-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
-              title="Open Customer Display in a new tab"
-            >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">📱 Customer Display</span>
-              <span className="sm:hidden">📱 Screen</span>
-              <ExternalLink className="w-3 h-3 opacity-70" />
-            </button>
-            <button
-              onClick={() => setShowMobileModal(true)}
-              className="p-1.5 rounded-r-xl bg-emerald-800 hover:bg-emerald-700 text-emerald-200 border-l border-emerald-500/40"
-              title="Scan QR to open on mobile phone"
-            >
-              <QrCode className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Live Clock & Date */}
-          <div className="hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-cyan-500/30 text-xs shadow-inner">
-            <div className="flex items-center gap-1.5 text-slate-300 font-mono">
-              <Calendar className="w-3.5 h-3.5 text-cyan-400" />
-              <span>{formattedDate}</span>
-            </div>
-            <span className="text-cyan-700">|</span>
-            <div className="flex items-center gap-1.5 text-cyan-300 font-mono font-bold tracking-wider">
-              <Clock className="w-3.5 h-3.5 text-cyan-400 animate-spin" style={{ animationDuration: '60s' }} />
-              <span>{formattedTime}</span>
-            </div>
-          </div>
-
-          {/* Settings Button (PIN/Password Protected) */}
-          <button
-            onClick={onOpenSettings}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-slate-800 to-slate-900 hover:from-cyan-950 hover:to-slate-900 border border-cyan-500/40 hover:border-cyan-400 text-cyan-200 hover:text-white transition-all text-xs font-semibold shadow-md hover:shadow-cyan-500/20 active:scale-95 group"
-            title="Access Admin Settings"
-          >
-            <div className="p-1 rounded-md bg-cyan-950/80 group-hover:bg-cyan-500/20 text-cyan-400">
-              <Lock className="w-3.5 h-3.5" />
-            </div>
-            <span className="hidden sm:inline">Settings</span>
-          </button>
-
-          {/* User Logout Button */}
-          {onLogout && (
-            <button
-              onClick={onLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-rose-950/60 border border-slate-700 hover:border-rose-500/50 text-slate-300 hover:text-rose-200 transition-all text-xs font-semibold shadow-md active:scale-95 group"
-              title="Log Out of Store Session"
-            >
-              <LogOut className="w-3.5 h-3.5 text-slate-400 group-hover:text-rose-400" />
-              <span className="hidden lg:inline">Logout</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Mobile QR Modal for Scanning with Phone Camera */}
+      {/* Mobile QR Modal: Rendered with position: fixed, inset: 0, zIndex: 9999, display: flex, align-items: center, justify-content: center */}
       {showMobileModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
-          <div className="relative w-full max-w-sm bg-slate-900 border border-cyan-500/40 rounded-3xl p-6 shadow-2xl text-center space-y-4">
+        <div 
+          className="fixed inset-0 bg-black/85 backdrop-blur-md animate-fadeIn"
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+        >
+          <div className="relative w-full max-w-sm bg-slate-900 border border-cyan-500/40 rounded-3xl p-6 shadow-2xl text-center space-y-4 my-auto">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="text-xs font-bold text-white flex items-center gap-1.5">
                 <Smartphone className="w-4 h-4 text-emerald-400" />
@@ -244,6 +266,6 @@ export const Header = ({
           </div>
         </div>
       )}
-    </header>
+    </>
   );
 };
