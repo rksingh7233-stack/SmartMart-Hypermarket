@@ -14,6 +14,25 @@ import {
 } from 'lucide-react';
 import { soundEngine } from '../services/audioService';
 
+// Safe text extractor to guarantee primitive strings/numbers inside React children
+const safeText = (val, fallback = '') => {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'object') {
+    // If an object or promise-like structure was passed
+    return val?.name || val?.label || val?.id || fallback;
+  }
+  return String(val);
+};
+
+const safeRank = (val, fallback = 1) => {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'object') {
+    return val?.rank || val?.tier || fallback;
+  }
+  const parsed = parseInt(val, 10);
+  return isNaN(parsed) ? fallback : parsed;
+};
+
 export const CustomerProfileBox = ({
   activeCustomer,
   customers = [],
@@ -24,16 +43,26 @@ export const CustomerProfileBox = ({
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showSavedDropdown, setShowSavedDropdown] = useState(false);
 
+  // Safe customers array
+  const customerList = Array.isArray(customers) ? customers : [];
+
   // Handle manual lookup by ID or Mobile
   const handleLookup = () => {
     if (!lookupInput.trim()) return;
     const term = lookupInput.trim().toLowerCase();
+    const cleanTerm = term.replace(/\s+/g, '');
 
-    const found = customers.find(c => 
-      c.id.toLowerCase() === term ||
-      c.mobile.replace(/\s+/g, '').includes(term.replace(/\s+/g, '')) ||
-      c.name.toLowerCase().includes(term)
-    );
+    const found = customerList.find(c => {
+      if (!c) return false;
+      const cId = safeText(c.id).toLowerCase();
+      const cMobile = safeText(c.mobile).replace(/\s+/g, '');
+      const cName = safeText(c.name).toLowerCase();
+      return (
+        (cId && cId === term) ||
+        (cMobile && cMobile.includes(cleanTerm)) ||
+        (cName && cName.includes(term))
+      );
+    });
 
     if (found) {
       soundEngine.playScannerBeep();
@@ -49,11 +78,14 @@ export const CustomerProfileBox = ({
   const getGreetingQuote = () => {
     if (!activeCustomer) return "Welcome to SmartMart AI! Step in front of the camera or search customer profile.";
 
-    if (activeCustomer.visits <= 1) {
-      return `Welcome to SmartMart, ${activeCustomer.salutation || activeCustomer.name}! Enjoy your first visit perks and exclusive member discounts today.`;
+    const name = safeText(activeCustomer.salutation) || safeText(activeCustomer.name, 'Valued Customer');
+    const visits = typeof activeCustomer.visits === 'number' ? activeCustomer.visits : 1;
+
+    if (visits <= 1) {
+      return `Welcome to SmartMart, ${name}! Enjoy your first visit perks and exclusive member discounts today.`;
     }
 
-    return `Welcome back, ${activeCustomer.salutation || activeCustomer.name}! Today is your ${activeCustomer.visits}th visit to our store.`;
+    return `Welcome back, ${name}! Today is your ${visits}th visit to our store.`;
   };
 
   const handlePlayVoice = () => {
@@ -108,30 +140,36 @@ export const CustomerProfileBox = ({
                 onClick={() => setShowSavedDropdown(!showSavedDropdown)}
                 className="flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-200 font-semibold shrink-0"
               >
-                <span>Saved ({customers.length})</span>
+                <span>Saved ({customerList.length})</span>
                 <ChevronDown className="w-3.5 h-3.5 text-cyan-400" />
               </button>
 
               {showSavedDropdown && (
                 <div className="absolute right-0 mt-1 w-64 bg-slate-950 border border-slate-700 rounded-xl shadow-2xl py-1 z-30 max-h-56 overflow-y-auto">
-                  {customers.length === 0 ? (
+                  {customerList.length === 0 ? (
                     <div className="p-3 text-center text-xs text-slate-500 font-mono">
                       No customers registered yet.<br />Click "+ Register New" to add one!
                     </div>
                   ) : (
-                    customers.map(c => (
+                    customerList.map(c => (
                       <button
-                        key={c.id}
+                        key={safeText(c?.id, Math.random())}
                         onClick={() => {
                           onSelectCustomer(c);
                           setShowSavedDropdown(false);
                         }}
                         className="w-full px-3 py-2 text-left hover:bg-cyan-950/60 flex items-center gap-2 text-xs border-b border-slate-800 last:border-none"
                       >
-                        <img src={c.avatar} alt={c.name} className="w-6 h-6 rounded-full object-cover border border-cyan-500/40" />
+                        <img 
+                          src={safeText(c?.avatar) || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&h=120&q=80"} 
+                          alt={safeText(c?.name, 'Customer')} 
+                          className="w-6 h-6 rounded-full object-cover border border-cyan-500/40" 
+                        />
                         <div className="min-w-0">
-                          <p className="font-bold text-slate-200 truncate">{c.name}</p>
-                          <p className="text-[10px] text-cyan-400 font-mono">{c.id} • Rank #{c.rank || 1}</p>
+                          <p className="font-bold text-slate-200 truncate">{safeText(c?.name, 'Customer')}</p>
+                          <p className="text-[10px] text-cyan-400 font-mono">
+                            {safeText(c?.id, 'CUST')} • Rank #{safeRank(c?.rank, 1)}
+                          </p>
                         </div>
                       </button>
                     ))
@@ -157,8 +195,8 @@ export const CustomerProfileBox = ({
           {/* Real Live Face Snapshot */}
           <div className="relative w-16 h-16 rounded-xl overflow-hidden border-2 border-cyan-400/80 shadow-md shrink-0 bg-slate-900">
             <img 
-              src={activeCustomer.avatar} 
-              alt={activeCustomer.name} 
+              src={safeText(activeCustomer.avatar) || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&h=120&q=80"} 
+              alt={safeText(activeCustomer.name, 'Customer')} 
               className="w-full h-full object-cover"
             />
             <div className="absolute bottom-0 inset-x-0 bg-cyan-950/90 text-cyan-300 text-[8px] font-mono text-center py-0.5 font-bold">
@@ -170,24 +208,24 @@ export const CustomerProfileBox = ({
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-base font-extrabold text-slate-100 truncate">
-                {activeCustomer.name}
+                {safeText(activeCustomer.name, 'Valued Customer')}
               </h3>
               <span className="shrink-0 px-2.5 py-0.5 rounded-full bg-cyan-950 border border-cyan-400/60 text-cyan-300 text-xs font-mono font-bold">
-                Rank #{activeCustomer.rank || 1}
+                Rank #{safeRank(activeCustomer.rank, 1)}
               </span>
             </div>
 
             <div className="mt-1 space-y-0.5 text-xs text-slate-300">
               <div className="flex items-center gap-1.5 text-slate-400">
                 <Phone className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                <span className="font-mono text-slate-300">{activeCustomer.mobile}</span>
+                <span className="font-mono text-slate-300">{safeText(activeCustomer.mobile, 'No Mobile')}</span>
                 <span className="text-slate-600">•</span>
-                <span className="font-mono text-[11px] text-slate-400">{activeCustomer.id}</span>
+                <span className="font-mono text-[11px] text-slate-400">{safeText(activeCustomer.id, 'CUST-001')}</span>
               </div>
 
               <div className="flex items-center gap-1.5 text-slate-400">
                 <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                <span className="text-[11px] text-slate-400 truncate">{activeCustomer.address}</span>
+                <span className="text-[11px] text-slate-400 truncate">{safeText(activeCustomer.address, 'Store Visitor')}</span>
               </div>
             </div>
           </div>
@@ -203,7 +241,7 @@ export const CustomerProfileBox = ({
               <span>AI Cashier Voice Engine</span>
             </div>
             <p className="text-xs text-slate-200 font-medium italic">
-              "{getGreetingQuote()}"
+              "{safeText(getGreetingQuote(), 'Welcome to SmartMart AI!')}"
             </p>
           </div>
 

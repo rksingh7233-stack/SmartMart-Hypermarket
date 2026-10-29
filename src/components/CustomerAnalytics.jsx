@@ -9,6 +9,20 @@ import {
   ShoppingBag 
 } from 'lucide-react';
 
+const safeNum = (val, fallback = 0) => {
+  if (typeof val === 'number') return val;
+  if (typeof val === 'object' && val !== null) return Number(val?.amount || val?.total || fallback) || fallback;
+  const parsed = parseFloat(val);
+  return isNaN(parsed) ? fallback : parsed;
+};
+
+const safeStr = (val, fallback = '') => {
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number') return String(val);
+  if (typeof val === 'object' && val !== null) return String(val?.name || val?.date || fallback);
+  return fallback;
+};
+
 export const CustomerAnalytics = ({
   activeCustomer,
   cart = [],
@@ -17,11 +31,11 @@ export const CustomerAnalytics = ({
 }) => {
   // Current active cart subtotal calculation for Present Bill Milestone
   const currentCartSubtotal = (cart || []).reduce(
-    (sum, item) => sum + (item.price * item.quantity),
+    (sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)),
     0
   );
 
-  const milestoneName = settings?.milestoneName || "Milestone Festival Reward";
+  const milestoneName = safeStr(settings?.milestoneName, "Milestone Festival Reward");
   const milestoneEnabled = settings?.milestoneEnabled !== false;
 
   const milestoneTargetAmount = settings?.milestoneTargetAmount !== undefined && Number(settings.milestoneTargetAmount) > 0
@@ -40,7 +54,7 @@ export const CustomerAnalytics = ({
   const isMilestoneUnlocked = milestoneEnabled && currentCartSubtotal >= milestoneTargetAmount;
   const remainingAmount = Math.max(0, milestoneTargetAmount - currentCartSubtotal);
 
-  const pastPurchases = activeCustomer?.pastPurchases || [];
+  const pastPurchases = Array.isArray(activeCustomer?.pastPurchases) ? activeCustomer.pastPurchases : [];
 
   return (
     <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 space-y-4 shadow-xl">
@@ -54,7 +68,7 @@ export const CustomerAnalytics = ({
           </div>
           <div className="mt-1 flex items-baseline gap-1.5">
             <span className="text-xl font-extrabold font-mono text-cyan-300">
-              {activeCustomer?.visits || 0}
+              {safeNum(activeCustomer?.visits, 0)}
             </span>
             <span className="text-[10px] text-slate-400">tracked visits</span>
           </div>
@@ -71,11 +85,11 @@ export const CustomerAnalytics = ({
           </div>
           <div className="mt-1 flex items-baseline gap-1.5">
             <span className="text-xl font-extrabold font-mono text-amber-300">
-              ₹{activeCustomer?.lastBuyAmount || 0}
+              ₹{safeNum(activeCustomer?.lastBuyAmount, 0).toFixed(2)}
             </span>
           </div>
           <span className="text-[10px] text-slate-400 font-mono truncate">
-            {activeCustomer?.lastVisitDate || "No previous visit"}
+            {safeStr(activeCustomer?.lastVisitDate, "No previous visit")}
           </span>
         </div>
       </div>
@@ -114,7 +128,7 @@ export const CustomerAnalytics = ({
                 </span>
               ) : (
                 <span className="text-emerald-400 font-bold flex items-center gap-1 font-mono">
-                  <Sparkles className="w-3 h-3 text-emerald-400" />
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
                   100% Completed - Unlocked ₹{milestoneDiscountAmount.toLocaleString()} Flat Discount!
                 </span>
               )}
@@ -170,25 +184,25 @@ export const CustomerAnalytics = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {pastPurchases.map((bill) => (
-                  <tr key={bill.id || bill.invoiceNo} className="hover:bg-slate-900/50 transition-colors">
+                {pastPurchases.map((bill, bIdx) => (
+                  <tr key={safeStr(bill?.id || bill?.invoiceNo, bIdx)} className="hover:bg-slate-900/50 transition-colors">
                     <td className="py-2 px-3 font-mono text-slate-300 text-[11px]">
-                      {bill.date?.split(' ')[0] || bill.date}
+                      {safeStr(bill?.date?.split(' ')[0] || bill?.date, 'Today')}
                     </td>
                     <td className="py-2 px-3 font-mono text-slate-400 text-[10px]">
-                      {bill.invoiceNo}
+                      {safeStr(bill?.invoiceNo || bill?.id, 'INV')}
                     </td>
                     <td className="py-2 px-3 text-right font-mono font-bold text-cyan-300">
-                      ₹{bill.totalPaid?.toFixed(2)}
+                      ₹{safeNum(bill?.totalPaid, 0).toFixed(2)}
                     </td>
                     <td className="py-2 px-3 text-center">
                       <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
-                        {bill.paymentMode || "UPI"}
+                        {safeStr(bill?.paymentMode, "UPI")}
                       </span>
                     </td>
                     <td className="py-2 px-2 text-center">
                       <button
-                        onClick={() => onViewInvoiceModal(bill)}
+                        onClick={() => onViewInvoiceModal && onViewInvoiceModal(bill)}
                         className="w-6 h-6 inline-flex items-center justify-center rounded-lg hover:bg-cyan-950 text-slate-400 hover:text-cyan-300 border border-transparent hover:border-cyan-500/30 transition-all active:scale-95"
                         title="View Detailed Invoice (3 Dots)"
                       >
